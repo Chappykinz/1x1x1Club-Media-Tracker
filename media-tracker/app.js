@@ -505,13 +505,16 @@ function getAllRatings() {
     return ratings;
 }
 
-window.renderStats = function (personFilter = 'ALL', avgPersonFilter = 'ALL', avgMediaFilter = 'ALL', dictatorMediaFilter = 'ALL') {
+window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL', avgPersonFilter = 'ALL', avgMediaFilter = 'ALL', dictatorMediaFilter = 'ALL') {
     const ratings = getAllRatings();
 
     // Filters for High/Low
     let highLowRatings = ratings;
     if (personFilter !== 'ALL') {
-        highLowRatings = ratings.filter(r => r.user === personFilter);
+        highLowRatings = highLowRatings.filter(r => r.user === personFilter);
+    }
+    if (highLowMediaFilter !== 'ALL') {
+        highLowRatings = highLowRatings.filter(r => r.type === highLowMediaFilter);
     }
 
     // Sort into top 5
@@ -536,54 +539,45 @@ window.renderStats = function (personFilter = 'ALL', avgPersonFilter = 'ALL', av
     }
 
     // Dictator Stats Logic
-    const dictatorStats = {};
-    USERS.forEach(u => dictatorStats[u] = { count: 0, totalScore: 0 });
+    let bestDictatorItem = null;
+    let worstDictatorItem = null;
 
     state.months.forEach(month => {
         if (month.mode === 'dictator' && month.dictator) {
-            let monthTotal = 0;
-            let ratingCount = 0;
-            USERS.forEach(user => {
-                MEDIA_TYPES.forEach(type => {
-                    if (dictatorMediaFilter !== 'ALL' && type !== dictatorMediaFilter) return;
+            MEDIA_TYPES.forEach(type => {
+                if (dictatorMediaFilter !== 'ALL' && type !== dictatorMediaFilter) return;
+
+                let itemTotal = 0;
+                let itemCount = 0;
+                USERS.forEach(user => {
                     const entry = month.entries[user][type];
                     if (entry && entry.rating) {
-                        monthTotal += parseFloat(entry.rating);
-                        ratingCount++;
+                        itemTotal += parseFloat(entry.rating);
+                        itemCount++;
                     }
                 });
+
+                if (itemCount > 0) {
+                    const avgScore = itemTotal / itemCount;
+                    const itemName = month.globalPicks[type] || 'Unknown Item';
+
+                    if (!bestDictatorItem || avgScore > bestDictatorItem.score) {
+                        bestDictatorItem = { dictator: month.dictator, itemName, score: avgScore, type };
+                    }
+                    if (!worstDictatorItem || avgScore < worstDictatorItem.score) {
+                        worstDictatorItem = { dictator: month.dictator, itemName, score: avgScore, type };
+                    }
+                }
             });
-            if (ratingCount > 0) {
-                dictatorStats[month.dictator].totalScore += (monthTotal / ratingCount);
-                dictatorStats[month.dictator].count++;
-            }
         }
     });
-
-    let bestDictator = null;
-    let worstDictator = null;
-    let bestAvg = 0;
-    let worstAvg = 10;
-
-    for (let d in dictatorStats) {
-        if (dictatorStats[d].count > 0) {
-            const avg = dictatorStats[d].totalScore / dictatorStats[d].count;
-            if (avg > bestAvg) {
-                bestAvg = avg;
-                bestDictator = d;
-            }
-            if (avg < worstAvg) {
-                worstAvg = avg;
-                worstDictator = d;
-            }
-        }
-    }
 
     // Build the user options
     const userOptions = USERS.map(u => `<option value="${u}">${u}</option>`).join('');
 
     // Selected states
     const selPerson = p => p === personFilter ? 'selected' : '';
+    const selHighLowMedia = m => m === highLowMediaFilter ? 'selected' : '';
     const selAvgPerson = p => p === avgPersonFilter ? 'selected' : '';
     const selAvgMedia = m => m === avgMediaFilter ? 'selected' : '';
     const selDictatorMedia = m => m === dictatorMediaFilter ? 'selected' : '';
@@ -597,47 +591,57 @@ window.renderStats = function (personFilter = 'ALL', avgPersonFilter = 'ALL', av
         </div>
 
         <div class="user-grid">
-            <!-- Top 5 Highest Rated -->
-            <div class="user-card" style="grid-column: span 1;">
-                <h3>Highest Rated</h3>
-                <div style="margin-bottom: 1rem;">
-                    <select id="stat-highlow-person" onchange="updateStats()">
-                        <option value="ALL" ${selPerson('ALL')}>All Members</option>
-                        ${userOptions.replace(/value="([^"]+)"/g, (match, p1) => match + (p1 === personFilter ? ' selected' : ''))}
-                    </select>
-                </div>
-                ${top5Highest.length > 0 ? top5Highest.map((item, idx) => `
-                    <div class="media-item" style="padding: 0.8rem; margin-bottom: 0.5rem;">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <span style="color:var(--text-secondary); font-size:0.8rem; font-weight:bold;">#${idx + 1}</span>
-                                <strong>${item.title}</strong>
-                                <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">${item.type.toUpperCase()} • ${item.user} • ${item.monthName}</div>
-                            </div>
-                            <div style="color: var(--accent); font-weight: 800; font-size: 1.2rem;">${item.rating}</div>
-                        </div>
+            <!-- Top 5 Highest & Lowest Rated Combo -->
+            <div class="user-card" style="grid-column: 1 / -1;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+                    <h3 style="margin:0;">Highest & Lowest Rated</h3>
+                    <div style="display:flex; gap:1rem; flex-wrap: wrap;">
+                        <select id="stat-highlow-person" onchange="updateStats()">
+                            <option value="ALL" ${selPerson('ALL')}>All Members</option>
+                            ${userOptions.replace(/value="([^"]+)"/g, (match, p1) => match + (p1 === personFilter ? ' selected' : ''))}
+                        </select>
+                        <select id="stat-highlow-media" onchange="updateStats()">
+                            <option value="ALL" ${selHighLowMedia('ALL')}>All Media Types</option>
+                            <option value="game" ${selHighLowMedia('game')}>Games</option>
+                            <option value="movie" ${selHighLowMedia('movie')}>Movies</option>
+                            <option value="book" ${selHighLowMedia('book')}>Books</option>
+                        </select>
                     </div>
-                `).join('') : '<p>No data available yet.</p>'}
-            </div>
-
-            <!-- Top 5 Lowest Rated -->
-            <div class="user-card" style="grid-column: span 1;">
-                <h3>Lowest Rated</h3>
-                <div style="visibility: hidden; margin-bottom: 1rem;">
-                    <select><option>Spacer</option></select>
                 </div>
-                ${top5Lowest.length > 0 ? top5Lowest.map((item, idx) => `
-                    <div class="media-item" style="padding: 0.8rem; margin-bottom: 0.5rem;">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <span style="color:var(--text-secondary); font-size:0.8rem; font-weight:bold;">#${idx + 1}</span>
-                                <strong>${item.title}</strong>
-                                <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">${item.type.toUpperCase()} • ${item.user} • ${item.monthName}</div>
+                
+                <div style="display:flex; gap: 2rem; flex-wrap: wrap;">
+                    <div style="flex:1; min-width: 280px;">
+                        <h4 style="color:var(--text-secondary); margin-bottom:0.8rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">Top 5 Highest</h4>
+                        ${top5Highest.length > 0 ? top5Highest.map((item, idx) => `
+                            <div class="media-item" style="padding: 0.8rem; margin-bottom: 0.5rem;">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <div>
+                                        <span style="color:var(--text-secondary); font-size:0.8rem; font-weight:bold;">#${idx + 1}</span>
+                                        <strong>${item.title}</strong>
+                                        <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">${item.type.toUpperCase()} • ${item.user} • ${item.monthName}</div>
+                                    </div>
+                                    <div style="color: var(--accent); font-weight: 800; font-size: 1.2rem;">${item.rating}</div>
+                                </div>
                             </div>
-                            <div style="color: var(--primary-gradient); font-weight: 800; font-size: 1.2rem;">${item.rating}</div>
-                        </div>
+                        `).join('') : '<p>No data available yet.</p>'}
                     </div>
-                `).join('') : '<p>No data available yet.</p>'}
+                    
+                    <div style="flex:1; min-width: 280px;">
+                        <h4 style="color:var(--text-secondary); margin-bottom:0.8rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">Top 5 Lowest</h4>
+                        ${top5Lowest.length > 0 ? top5Lowest.map((item, idx) => `
+                            <div class="media-item" style="padding: 0.8rem; margin-bottom: 0.5rem;">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <div>
+                                        <span style="color:var(--text-secondary); font-size:0.8rem; font-weight:bold;">#${idx + 1}</span>
+                                        <strong>${item.title}</strong>
+                                        <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">${item.type.toUpperCase()} • ${item.user} • ${item.monthName}</div>
+                                    </div>
+                                    <div style="color: var(--primary-gradient); font-weight: 800; font-size: 1.2rem;">${item.rating}</div>
+                                </div>
+                            </div>
+                        `).join('') : '<p>No data available yet.</p>'}
+                    </div>
+                </div>
             </div>
 
             <!-- Average Scores (Centered) -->
@@ -696,25 +700,27 @@ window.renderStats = function (personFilter = 'ALL', avgPersonFilter = 'ALL', av
                 <div style="display: flex; justify-content: center; gap: 4rem; flex-wrap: wrap;">
                     
                     <!-- Benevolent Dictator -->
-                    <div style="display:flex; flex-direction:column; align-items:center; text-align:center;">
+                    <div style="display:flex; flex-direction:column; align-items:center; text-align:center; max-width: 250px;">
                         <img src="https://upload.wikimedia.org/wikipedia/commons/e/eb/Lee_Kuan_Yew_1965_Standard_Restoration.jpg" style="width:120px; height:120px; border-radius:50%; object-fit:cover; margin-bottom:1rem; border: 3px solid #4CAF50;">
                         <h3 style="color:#4CAF50; margin:0;">Benevolent Dictator</h3>
-                        <p style="color:var(--text-secondary); font-size:0.9rem; margin-top:0.3rem;">Highest rated global picks</p>
-                        ${bestDictator ? `
-                            <div style="font-size:1.5rem; font-weight:bold; margin-top:1rem;">${bestDictator}</div>
-                            <div style="color:var(--text-secondary);">${bestAvg.toFixed(1)}/10 avg score</div>
-                        ` : `<div style="margin-top:1rem; color:var(--text-secondary);">No dictator data yet</div>`}
+                        <p style="color:var(--text-secondary); font-size:0.9rem; margin-top:0.3rem;">Highest rated global pick</p>
+                        ${bestDictatorItem ? `
+                            <div style="font-size:1.5rem; font-weight:bold; margin-top:1rem;">${bestDictatorItem.dictator}</div>
+                            <div style="font-size:1.1rem; color:var(--text-primary); margin-top:0.5rem; font-weight: 600;">${bestDictatorItem.itemName}</div>
+                            <div style="color:var(--text-secondary); margin-top:0.2rem;">${bestDictatorItem.score.toFixed(1)}/10 avg score</div>
+                        ` : `<div style="margin-top:1rem; color:var(--text-secondary);">No data yet</div>`}
                     </div>
 
                     <!-- Evil Dictator -->
-                    <div style="display:flex; flex-direction:column; align-items:center; text-align:center;">
+                    <div style="display:flex; flex-direction:column; align-items:center; text-align:center; max-width: 250px;">
                         <img src="https://upload.wikimedia.org/wikipedia/commons/2/21/Muammar_al-Gaddafi_at_the_AU_summit.jpg" style="width:120px; height:120px; border-radius:50%; object-fit:cover; margin-bottom:1rem; border: 3px solid #F44336;">
                         <h3 style="color:#F44336; margin:0;">Evil Dictator</h3>
-                        <p style="color:var(--text-secondary); font-size:0.9rem; margin-top:0.3rem;">Lowest rated global picks</p>
-                        ${worstDictator ? `
-                            <div style="font-size:1.5rem; font-weight:bold; margin-top:1rem;">${worstDictator}</div>
-                            <div style="color:var(--text-secondary);">${worstAvg.toFixed(1)}/10 avg score</div>
-                        ` : `<div style="margin-top:1rem; color:var(--text-secondary);">No dictator data yet</div>`}
+                        <p style="color:var(--text-secondary); font-size:0.9rem; margin-top:0.3rem;">Lowest rated global pick</p>
+                        ${worstDictatorItem ? `
+                            <div style="font-size:1.5rem; font-weight:bold; margin-top:1rem;">${worstDictatorItem.dictator}</div>
+                            <div style="font-size:1.1rem; color:var(--text-primary); margin-top:0.5rem; font-weight: 600;">${worstDictatorItem.itemName}</div>
+                            <div style="color:var(--text-secondary); margin-top:0.2rem;">${worstDictatorItem.score.toFixed(1)}/10 avg score</div>
+                        ` : `<div style="margin-top:1rem; color:var(--text-secondary);">No data yet</div>`}
                     </div>
 
                 </div>
@@ -804,10 +810,11 @@ window.renderStats = function (personFilter = 'ALL', avgPersonFilter = 'ALL', av
 
 window.updateStats = function () {
     const personF = document.getElementById('stat-highlow-person').value;
+    const highLowMediaF = document.getElementById('stat-highlow-media').value;
     const avgPersonF = document.getElementById('stat-avg-person').value;
     const avgMediaF = document.getElementById('stat-avg-media').value;
     const dictatorMediaF = document.getElementById('stat-dictator-media').value;
-    renderStats(personF, avgPersonF, avgMediaF, dictatorMediaF);
+    renderStats(personF, highLowMediaF, avgPersonF, avgMediaF, dictatorMediaF);
 };
 
 // --- Authentication ---
