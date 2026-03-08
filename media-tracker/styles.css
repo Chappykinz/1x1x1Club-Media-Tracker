@@ -509,3 +509,33 @@ option {
 .autocomplete-item:hover {
     background: rgba(255, 255, 255, 0.1);
 }
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .glass-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem;
+        padding: 1rem;
+    }
+
+    .header-actions {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    nav#month-nav {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .user-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .tooltip-content {
+        left: 50% !important;
+        transform: translateX(-50%);
+        right: auto !important;
+    }
+}
