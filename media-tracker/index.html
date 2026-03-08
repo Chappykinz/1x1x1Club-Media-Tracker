@@ -4,120 +4,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>1x1x1 Club</title>
+    <title>Media Tracker Club</title>
     <link
         href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@400;500;700&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
-    <!-- Login Screen -->
-    <div id="login-overlay"
-        style="position: fixed; inset: 0; background: var(--bg-primary); z-index: 9999; display: flex; align-items: center; justify-content: center; flex-direction: column;">
-        <div class="glass-panel" style="text-align: center; max-width: 400px; width: 90%;">
-            <h1 style="margin-bottom: 1rem;"><span class="gradient-text">1x1x1</span> Club</h1>
-            <p style="margin-bottom: 2rem; color: var(--text-secondary);">Please log in to continue.</p>
-            <form id="login-form">
-                <div class="form-group">
-                    <input type="text" id="login-username" placeholder="Username" required
-                        style="width: 100%; margin-bottom: 1rem;" />
-                </div>
-                <div class="form-group">
-                    <input type="password" id="login-password" placeholder="Password" required
-                        style="width: 100%; margin-bottom: 1rem;" />
-                </div>
-                <div id="login-error" style="color: #ff6b6b; margin-bottom: 1rem; font-size: 0.9rem; display: none;">
-                    Invalid credentials</div>
-                <button type="submit" class="btn-primary" style="width: 100%;">Enter</button>
-            </form>
-        </div>
-    </div>
-
-    <div class="app-container" id="app-container" style="display: none;">
+    <div class="app-container">
         <header class="glass-header">
-            <div style="display:flex; flex-direction:column; gap:0.2rem;">
-                <div class="logo">
-                    <span class="gradient-text">1x1x1</span> Club
-                </div>
-                <div id="user-profile-display"
-                    style="font-size: 0.8rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 0.2rem;">
-                    <span id="header-username-label">User: Unknown</span>
-                    <button id="logout-btn"
-                        style="background:none; border:none; color:var(--accent); font-size:0.7rem; cursor:pointer; text-decoration:underline; text-align:left; padding:0; outline:none;">Log
-                        Out</button>
-                </div>
+            <div class="logo">
+                <span class="gradient-text">Media</span>Tracker
             </div>
             <nav id="month-nav">
                 <!-- Navigation inserted by JS -->
             </nav>
-            <div class="header-actions" style="display: flex; gap: 1rem; align-items: center;">
-                <div class="tooltip-container">
-                    <button class="btn-secondary"
-                        style="cursor: default; padding: 0.4rem 0.8rem; font-size: 0.9rem;">Scoring Rubric</button>
-                    <div class="tooltip-content glass-panel">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Score</th>
-                                    <th>Expectation</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td><strong>1</strong></td>
-                                    <td>Terrible quality from story, to production values, to acting. Barely qualifies
-                                        as professional.</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>2</strong></td>
-                                    <td>Everything is bad but it isn’t amateurish</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>3</strong></td>
-                                    <td>This where things are mostly weak and don’t hold up to scrutiny but you can find
-                                        some small glimmers of entertainment value.</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>4</strong></td>
-                                    <td>Mixed bag trending on doing more wrong than good, but not wholly bad or
-                                        irredeemable</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>5</strong></td>
-                                    <td>Average. Competent enough to have a lot worth watching but still suffers fron
-                                        weak points that balance it out.</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>6</strong></td>
-                                    <td>Basically the reverse of 4. It’s mixed but the good outweighs the bad enough for
-                                        it to be viewed as a good product.</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>7</strong></td>
-                                    <td>This is a flat good show. Does most things right. Succeeds at being competent
-                                        and entertaining living up to its base mission statement.</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>8</strong></td>
-                                    <td>We are now getting to a quality that is both well made and is showing signs of
-                                        being compelling and must watch.</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>9</strong></td>
-                                    <td>An almost flawless product with high levels of acting, directing, story, minimal
-                                        to no weakness has the X factor of being unbelievably compelling and just sucks
-                                        you into it.</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>10</strong></td>
-                                    <td>Masterpiece</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+            <div class="header-actions" style="display: flex; gap: 1rem;">
                 <button id="stats-btn" class="btn-secondary">Stats</button>
                 <button id="add-month-btn" class="btn-primary">+ New Month</button>
             </div>
@@ -154,6 +57,12 @@
                     <div style="flex: 1;">
                         <label>Year</label>
                         <select id="year-select-input" required>
+                            <option value="2020">2020</option>
+                            <option value="2021">2021</option>
+                            <option value="2022">2022</option>
+                            <option value="2023">2023</option>
+                            <option value="2024">2024</option>
+                            <option value="2025">2025</option>
                             <option value="2026" selected>2026</option>
                             <option value="2027">2027</option>
                             <option value="2028">2028</option>
@@ -186,23 +95,6 @@
         </div>
     </div>
 
-    <!-- Read Review Modal -->
-    <div id="read-review-modal" class="modal hidden">
-        <div class="modal-content glass-panel" style="max-width: 600px; width: 90%;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
-                <h2 id="review-modal-title"></h2>
-                <div id="review-modal-rating" class="media-rating"></div>
-            </div>
-            <p id="review-modal-author" style="color: var(--text-secondary); margin-bottom: 1rem;"></p>
-            <div id="review-modal-content"
-                style="font-size: 1.1rem; line-height: 1.6; max-height: 400px; overflow-y: auto;"></div>
-            <div class="modal-actions">
-                <button class="btn-primary" onclick="closeReviewModal()">Close</button>
-            </div>
-        </div>
-    </div>
-
-    <script src="data.js"></script>
     <script src="app.js"></script>
 </body>
 
