@@ -154,10 +154,24 @@
         </div>
     </div>
 
+    <div id="image-select-modal" class="modal hidden" style="z-index: 3000;">
+        <div class="modal-content glass-panel" style="max-width: 800px; padding: 2rem;">
+            <h3 style="margin-top:0;">Select an Image</h3>
+            <div id="image-select-grid"
+                style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 1rem; margin: 1rem 0; max-height: 400px; overflow-y: auto;">
+                <!-- Images injected here -->
+            </div>
+            <div style="text-align: right; margin-top: 1.5rem;">
+                <button class="btn-secondary"
+                    onclick="document.getElementById('image-select-modal').classList.add('hidden')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="app.js?v=8"></script>
+    <script src="app.js?v=10"></script>
 </body>
 
 </html>

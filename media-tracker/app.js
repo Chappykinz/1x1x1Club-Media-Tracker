@@ -434,6 +434,9 @@ function renderContent() {
         <div id="review-modal" class="modal hidden" style="z-index: 2000;">
             <div class="modal-content glass-panel" style="max-width: 500px; padding: 2rem;">
                 <h3 style="margin-top:0;">Thoughts & Review</h3>
+                <div id="review-modal-image-container" style="text-align: center; margin-bottom: 1rem; display: none;">
+                    <img id="review-modal-image" src="" style="max-width: 150px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);" />
+                </div>
                 <div id="review-modal-text" style="white-space: pre-wrap; margin: 1rem 0; line-height: 1.5; color: var(--text-color);"></div>
                 <div style="text-align: right; margin-top: 1.5rem;">
                     <button class="btn-primary" onclick="document.getElementById('review-modal').classList.add('hidden')">Close</button>
@@ -454,7 +457,9 @@ function renderMediaItemsForUser(month, user, isEdit) {
         // In Dictator Mode, the title comes from Global Picks (except for Dictators filling their own sheet if they want)
         const isDictatorMode = month.mode === 'dictator';
         const globalTitle = isDictatorMode && month.globalPicks ? month.globalPicks[type] : '';
+        const globalImage = isDictatorMode && month.globalPicks ? month.globalPicks[type + 'Image'] : '';
         const displayTitle = isDictatorMode ? globalTitle : entry.title;
+        const displayImage = isDictatorMode ? (globalImage || entry.imageUrl) : entry.imageUrl;
         const titlePlaceholder = type.charAt(0).toUpperCase() + type.slice(1) + ' Title';
 
         let extraFields = '';
@@ -487,7 +492,7 @@ function renderMediaItemsForUser(month, user, isEdit) {
                 }
                     ${extraFields}
                     <div style="display: flex; margin-top: 0.5rem;">
-                        <input type="text" id="edit-${user}-${type}-image" value="${entry.imageUrl || ''}" placeholder="Cover Image URL (Optional)" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0;" />
+                        <input type="text" id="edit-${user}-${type}-image" value="${displayImage || ''}" placeholder="Cover Image URL (Optional)" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0;" />
                         <button type="button" class="btn-secondary" style="border-top-left-radius: 0; border-bottom-left-radius: 0; padding: 0 1rem; border-color: rgba(255,255,255,0.1); background: rgba(0,0,0,0.2);" onclick="autoFetchImage('${user}', '${type}', ${isDictatorMode})" title="Auto-find Image based on Title">🔍 Fetch</button>
                     </div>
                     <input type="number" id="edit-${user}-${type}-rating" value="${entry.rating || ''}" placeholder="Rating (1-10)" min="1" max="10" step="0.5" style="margin-top: 0.5rem;" />
@@ -505,9 +510,9 @@ function renderMediaItemsForUser(month, user, isEdit) {
                                 <div class="media-title" style="flex:1;">${titleDisplay}</div>
                                 ${entry.rating ? `<div class="media-rating" style="color: ${getRatingColor(entry.rating)}; align-self: flex-start;">${entry.rating}/10</div>` : ''}
                             </div>
-                            ${entry.thoughts ? `<div style="margin-top:0.5rem;"><a class="read-review-link" style="color:var(--accent); cursor:pointer; font-size: 0.9rem; text-decoration:underline;" onclick="showReviewModal(this)" data-thoughts="${entry.thoughts.replace(/"/g, '&quot;')}">Read Review</a></div>` : ''}
+                            ${entry.thoughts ? `<div style="margin-top:0.5rem;"><a class="read-review-link" style="color:var(--accent); cursor:pointer; font-size: 0.9rem; text-decoration:underline;" onclick="showReviewModal(this)" data-image="${displayImage || ''}" data-thoughts="${entry.thoughts.replace(/"/g, '&quot;')}">Read Review</a></div>` : ''}
                         </div>
-                        ${entry.imageUrl ? `<img src="${entry.imageUrl}" alt="Cover" class="media-thumbnail" />` : ''}
+                        ${displayImage ? `<img src="${displayImage}" alt="Cover" class="media-thumbnail" />` : ''}
                     </div>
                 </div>
             `;
@@ -529,8 +534,21 @@ function renderMediaItemsForUser(month, user, isEdit) {
 // --- Interaction Logic ---
 window.showReviewModal = function (element) {
     const text = element.getAttribute('data-thoughts');
+    const image = element.getAttribute('data-image');
     const modal = document.getElementById('review-modal');
+
     document.getElementById('review-modal-text').textContent = text;
+
+    const imgContainer = document.getElementById('review-modal-image-container');
+    const imgEl = document.getElementById('review-modal-image');
+    if (image) {
+        imgEl.src = image;
+        imgContainer.style.display = 'block';
+    } else {
+        imgContainer.style.display = 'none';
+        imgEl.src = '';
+    }
+
     modal.classList.remove('hidden');
 };
 
@@ -579,15 +597,27 @@ window.showGlobalPicksModal = function () {
             <h2>Set Dictator Picks</h2>
             <div class="form-group">
                 <label>Video Game</label>
-                <input type="text" id="global-game" value="${month.globalPicks.game || ''}" />
+                <input type="text" id="global-game-title" value="${month.globalPicks.game || ''}" placeholder="Game Title..." />
+                <div style="display: flex; margin-top: 0.5rem;">
+                    <input type="text" id="global-game-image" value="${month.globalPicks.gameImage || ''}" placeholder="Cover Image URL (Optional)" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0;" />
+                    <button type="button" class="btn-secondary" style="border-top-left-radius: 0; border-bottom-left-radius: 0; padding: 0 1rem; border-color: rgba(255,255,255,0.1); background: rgba(0,0,0,0.2);" onclick="autoFetchGlobalImage('game')" title="Auto-find Image based on Title">🔍 Fetch</button>
+                </div>
             </div>
             <div class="form-group">
                 <label>Movie</label>
-                <input type="text" id="global-movie" value="${month.globalPicks.movie || ''}" />
+                <input type="text" id="global-movie-title" value="${month.globalPicks.movie || ''}" placeholder="Movie Title..." />
+                <div style="display: flex; margin-top: 0.5rem;">
+                    <input type="text" id="global-movie-image" value="${month.globalPicks.movieImage || ''}" placeholder="Cover Image URL (Optional)" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0;" />
+                    <button type="button" class="btn-secondary" style="border-top-left-radius: 0; border-bottom-left-radius: 0; padding: 0 1rem; border-color: rgba(255,255,255,0.1); background: rgba(0,0,0,0.2);" onclick="autoFetchGlobalImage('movie')" title="Auto-find Image based on Title">🔍 Fetch</button>
+                </div>
             </div>
             <div class="form-group">
                 <label>Book</label>
-                <input type="text" id="global-book" value="${month.globalPicks.book || ''}" />
+                <input type="text" id="global-book-title" value="${month.globalPicks.book || ''}" placeholder="Book Title..." />
+                <div style="display: flex; margin-top: 0.5rem;">
+                    <input type="text" id="global-book-image" value="${month.globalPicks.bookImage || ''}" placeholder="Cover Image URL (Optional)" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0;" />
+                    <button type="button" class="btn-secondary" style="border-top-left-radius: 0; border-bottom-left-radius: 0; padding: 0 1rem; border-color: rgba(255,255,255,0.1); background: rgba(0,0,0,0.2);" onclick="autoFetchGlobalImage('book')" title="Auto-find Image based on Title">🔍 Fetch</button>
+                </div>
             </div>
             <div class="modal-actions">
                 <button class="btn-secondary" onclick="document.getElementById('global-picks-modal').classList.add('hidden')">Cancel</button>
@@ -603,9 +633,12 @@ window.saveGlobalPicks = function () {
     const month = state.months.find(m => m.id === monthId);
     if (!month) return;
 
-    month.globalPicks.game = document.getElementById('global-game').value;
-    month.globalPicks.movie = document.getElementById('global-movie').value;
-    month.globalPicks.book = document.getElementById('global-book').value;
+    month.globalPicks.game = document.getElementById('global-game-title').value;
+    month.globalPicks.gameImage = document.getElementById('global-game-image').value;
+    month.globalPicks.movie = document.getElementById('global-movie-title').value;
+    month.globalPicks.movieImage = document.getElementById('global-movie-image').value;
+    month.globalPicks.book = document.getElementById('global-book-title').value;
+    month.globalPicks.bookImage = document.getElementById('global-book-image').value;
 
     saveData();
     render();
@@ -1204,46 +1237,174 @@ window.autoFetchImage = async function (user, type, isDictatorMode) {
     }
 
     const originalPlaceholder = imageEl.placeholder;
-    imageEl.placeholder = "Searching for image...";
-    imageEl.value = ""; // Clear current so they see the placeholder
+    imageEl.placeholder = "Searching for images...";
+
+    let imageUrls = [];
 
     try {
-        let imageUrl = '';
         if (type === 'book') {
-            const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(title)}&limit=1`);
+            const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(title)}&limit=10`);
             const data = await res.json();
-            if (data.docs && data.docs.length > 0 && data.docs[0].cover_i) {
-                imageUrl = `https://covers.openlibrary.org/b/id/${data.docs[0].cover_i}-L.jpg`;
+            if (data.docs) {
+                data.docs.forEach(doc => {
+                    if (doc.cover_i && !imageUrls.includes(`https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`)) {
+                        imageUrls.push(`https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`);
+                    }
+                });
             }
         } else if (type === 'movie') {
-            const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&entity=movie&limit=1`);
+            const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&entity=movie&limit=10`);
             const data = await res.json();
-            if (data.results && data.results.length > 0) {
-                // Replace low res with high res URL
-                imageUrl = data.results[0].artworkUrl100.replace('100x100bb', '600x600bb');
+            if (data.results) {
+                data.results.forEach(r => {
+                    if (r.artworkUrl100) {
+                        imageUrls.push(r.artworkUrl100.replace('100x100bb', '600x600bb'));
+                    }
+                });
             }
-        } else if (type === 'game') {
-            // First try iTunes software (captures many popular titles)
-            const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&entity=software&limit=1`);
-            const data = await res.json();
-            if (data.results && data.results.length > 0) {
-                imageUrl = data.results[0].artworkUrl512 || data.results[0].artworkUrl100;
-            } else {
-                // Fallback to Wikipedia API for video games
-                const wikiRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&prop=pageimages&titles=${encodeURIComponent(title)} (video game)&format=json&pithumbsize=500&origin=*`);
+
+            // Supplement with Wikipedia
+            try {
+                const wikiRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(title + ' film')}&gsrlimit=5&prop=pageimages&pithumbsize=500&format=json&origin=*`);
                 const wikiData = await wikiRes.json();
-                const pages = wikiData.query.pages;
-                const pageId = Object.keys(pages)[0];
-                if (pageId !== "-1" && pages[pageId].thumbnail) {
-                    imageUrl = pages[pageId].thumbnail.source;
+                if (wikiData.query && wikiData.query.pages) {
+                    Object.values(wikiData.query.pages).forEach(p => {
+                        if (p.thumbnail && p.thumbnail.source) imageUrls.push(p.thumbnail.source);
+                    });
                 }
+            } catch (e) { }
+
+        } else if (type === 'game') {
+            const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&entity=software&limit=5`);
+            const data = await res.json();
+            if (data.results) {
+                data.results.forEach(r => {
+                    let url = r.artworkUrl512 || r.artworkUrl100;
+                    if (url) imageUrls.push(url);
+                });
             }
+
+            // Supplement with Wikipedia
+            try {
+                const wikiRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(title + ' video game')}&gsrlimit=5&prop=pageimages&pithumbsize=500&format=json&origin=*`);
+                const wikiData = await wikiRes.json();
+                if (wikiData.query && wikiData.query.pages) {
+                    Object.values(wikiData.query.pages).forEach(p => {
+                        if (p.thumbnail && p.thumbnail.source) imageUrls.push(p.thumbnail.source);
+                    });
+                }
+            } catch (e) { }
         }
 
-        if (imageUrl) {
-            imageEl.value = imageUrl;
+        // Remove duplicates
+        imageUrls = [...new Set(imageUrls)];
+
+        if (imageUrls.length > 0) {
+            showImageSelectModal(imageUrls, imageEl.id);
         } else {
-            alert(`Couldn't find an automatic image for "${title}". You may need to paste a URL manually.`);
+            alert(`Couldn't find automatic images for "${title}". You may need to paste a URL manually.`);
+        }
+    } catch (e) {
+        console.error("Error auto-fetching image:", e);
+        alert("There was an error trying to fetch the image. Please try manually.");
+    } finally {
+        imageEl.placeholder = originalPlaceholder;
+    }
+};
+
+window.showImageSelectModal = function (urls, targetInputId) {
+    const modal = document.getElementById('image-select-modal');
+    const grid = document.getElementById('image-select-grid');
+    grid.innerHTML = '';
+
+    urls.forEach(url => {
+        const img = document.createElement('img');
+        img.src = url;
+        img.style.cssText = 'width: 100%; height: 180px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 2px solid transparent; transition: border 0.2s ease;';
+        img.onmouseover = () => img.style.borderColor = 'var(--accent)';
+        img.onmouseout = () => img.style.borderColor = 'transparent';
+        img.onclick = () => {
+            document.getElementById(targetInputId).value = url;
+            modal.classList.add('hidden');
+        };
+        grid.appendChild(img);
+    });
+
+    modal.classList.remove('hidden');
+};
+
+window.autoFetchGlobalImage = async function (type) {
+    const titleEl = document.getElementById(`global-${type}-title`);
+    const title = titleEl ? titleEl.value.trim() : '';
+
+    const imageEl = document.getElementById(`global-${type}-image`);
+
+    if (!title) {
+        alert("Please enter a title first to search for an image.");
+        return;
+    }
+
+    const originalPlaceholder = imageEl.placeholder;
+    imageEl.placeholder = "Searching for images...";
+
+    let imageUrls = [];
+
+    try {
+        if (type === 'book') {
+            const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(title)}&limit=10`);
+            const data = await res.json();
+            if (data.docs) {
+                data.docs.forEach(doc => {
+                    if (doc.cover_i && !imageUrls.includes(`https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`)) {
+                        imageUrls.push(`https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`);
+                    }
+                });
+            }
+        } else if (type === 'movie') {
+            const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&entity=movie&limit=10`);
+            const data = await res.json();
+            if (data.results) {
+                data.results.forEach(r => {
+                    if (r.artworkUrl100) {
+                        imageUrls.push(r.artworkUrl100.replace('100x100bb', '600x600bb'));
+                    }
+                });
+            }
+            try {
+                const wikiRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(title + ' film')}&gsrlimit=5&prop=pageimages&pithumbsize=500&format=json&origin=*`);
+                const wikiData = await wikiRes.json();
+                if (wikiData.query && wikiData.query.pages) {
+                    Object.values(wikiData.query.pages).forEach(p => {
+                        if (p.thumbnail && p.thumbnail.source) imageUrls.push(p.thumbnail.source);
+                    });
+                }
+            } catch (e) { }
+        } else if (type === 'game') {
+            const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&entity=software&limit=5`);
+            const data = await res.json();
+            if (data.results) {
+                data.results.forEach(r => {
+                    let url = r.artworkUrl512 || r.artworkUrl100;
+                    if (url) imageUrls.push(url);
+                });
+            }
+            try {
+                const wikiRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(title + ' video game')}&gsrlimit=5&prop=pageimages&pithumbsize=500&format=json&origin=*`);
+                const wikiData = await wikiRes.json();
+                if (wikiData.query && wikiData.query.pages) {
+                    Object.values(wikiData.query.pages).forEach(p => {
+                        if (p.thumbnail && p.thumbnail.source) imageUrls.push(p.thumbnail.source);
+                    });
+                }
+            } catch (e) { }
+        }
+
+        imageUrls = [...new Set(imageUrls)];
+
+        if (imageUrls.length > 0) {
+            showImageSelectModal(imageUrls, imageEl.id);
+        } else {
+            alert(`Couldn't find automatic images for "${title}". You may need to paste a URL manually.`);
         }
     } catch (e) {
         console.error("Error auto-fetching image:", e);
