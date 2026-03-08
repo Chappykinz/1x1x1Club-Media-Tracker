@@ -296,7 +296,7 @@ function renderContent() {
                 <div class="user-card-header">
                     <div class="avatar">${user[0]}</div>
                     <div class="user-name">${user}</div>
-                    <button class="btn-secondary" style="margin-left:auto; padding: 0.3rem 0.6rem; font-size: 0.8rem;" onclick="startEdit('${user}')">Edit</button>
+                    ${currentUser === user ? `<button class="btn-secondary" style="margin-left:auto; padding: 0.3rem 0.6rem; font-size: 0.8rem;" onclick="startEdit('${user}')">Edit</button>` : '<div style="margin-left:auto;"></div>'}
                 </div>
                 <div class="media-section" id="view-mode-${user}">
                     ${renderMediaItemsForUser(month, user, false)}
@@ -729,7 +729,13 @@ const logoutBtn = document.getElementById('logout-btn');
 let currentUser = localStorage.getItem('mediaTrackerUser');
 
 window.loginAs = function (user) {
+    const pwdInput = document.getElementById('login-password');
+    if (pwdInput && pwdInput.value !== 'LPP') {
+        alert('Incorrect password!');
+        return;
+    }
     currentUser = user;
+    if (pwdInput) pwdInput.value = ''; // clear out the field
     localStorage.setItem('mediaTrackerUser', user);
     loginOverlay.style.display = 'none';
     appContainer.style.display = 'block';
