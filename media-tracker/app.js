@@ -497,13 +497,11 @@ window.renderStats = function (personFilter = 'ALL', avgPersonFilter = 'ALL', av
         highLowRatings = ratings.filter(r => r.user === personFilter);
     }
 
-    // Find Highest
-    let highest = null;
-    let lowest = null;
-    if (highLowRatings.length > 0) {
-        highest = highLowRatings.reduce((max, r) => r.rating > max.rating ? r : max, highLowRatings[0]);
-        lowest = highLowRatings.reduce((min, r) => r.rating < min.rating ? r : min, highLowRatings[0]);
-    }
+    // Sort into top 5
+    const sortedDesc = [...highLowRatings].sort((a, b) => b.rating - a.rating);
+    const sortedAsc = [...highLowRatings].sort((a, b) => a.rating - b.rating);
+    const top5Highest = sortedDesc.slice(0, 5);
+    const top5Lowest = sortedAsc.slice(0, 5);
 
     // Filter for Averages
     let avgRatings = ratings;
@@ -520,6 +518,49 @@ window.renderStats = function (personFilter = 'ALL', avgPersonFilter = 'ALL', av
         averageScore = (sum / avgRatings.length).toFixed(1);
     }
 
+    // Dictator Stats Logic
+    const dictatorStats = {};
+    USERS.forEach(u => dictatorStats[u] = { count: 0, totalScore: 0 });
+
+    state.months.forEach(month => {
+        if (month.mode === 'dictator' && month.dictator) {
+            let monthTotal = 0;
+            let ratingCount = 0;
+            USERS.forEach(user => {
+                MEDIA_TYPES.forEach(type => {
+                    const entry = month.entries[user][type];
+                    if (entry && entry.rating) {
+                        monthTotal += parseFloat(entry.rating);
+                        ratingCount++;
+                    }
+                });
+            });
+            if (ratingCount > 0) {
+                dictatorStats[month.dictator].totalScore += (monthTotal / ratingCount);
+                dictatorStats[month.dictator].count++;
+            }
+        }
+    });
+
+    let bestDictator = null;
+    let worstDictator = null;
+    let bestAvg = 0;
+    let worstAvg = 10;
+
+    for (let d in dictatorStats) {
+        if (dictatorStats[d].count > 0) {
+            const avg = dictatorStats[d].totalScore / dictatorStats[d].count;
+            if (avg > bestAvg) {
+                bestAvg = avg;
+                bestDictator = d;
+            }
+            if (avg < worstAvg) {
+                worstAvg = avg;
+                worstDictator = d;
+            }
+        }
+    }
+
     // Build the user options
     const userOptions = USERS.map(u => `<option value="${u}">${u}</option>`).join('');
 
@@ -534,11 +575,30 @@ window.renderStats = function (personFilter = 'ALL', avgPersonFilter = 'ALL', av
                 <h1>Club Statistics</h1>
                 <div class="month-meta">Overview of all ratings over time</div>
             </div>
+            
+            <div class="dropdown">
+                <button class="btn-secondary" style="background:var(--card-bg); border: 1px solid var(--accent); color: var(--accent);">Scoring Rubric ℹ️</button>
+                <div class="dropdown-content glass-panel" style="right: 0; min-width: 300px; padding: 1.5rem; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; z-index: 1000;">
+                    <h3 style="margin-top:0; color:var(--text-color);">Rating Scale</h3>
+                    <ul style="list-style:none; padding:0; margin:0; font-size:0.9rem; line-height: 1.6; color:var(--text-secondary);">
+                        <li><strong style="color:#4caf50;">10</strong> - Masterpiece. Must consume.</li>
+                        <li><strong style="color:#8bc34a;">9</strong> - Incredible. Highly recommended.</li>
+                        <li><strong style="color:#cddc39;">8</strong> - Great. Very enjoyable.</li>
+                        <li><strong style="color:#ffeb3b;">7</strong> - Good. Solid experience.</li>
+                        <li><strong style="color:#ffc107;">6</strong> - Okay. Above average but flawed.</li>
+                        <li><strong style="color:#ff9800;">5</strong> - Mediocre. Exactly average.</li>
+                        <li><strong style="color:#ff5722;">4</strong> - Subpar. Mostly didn't enjoy it.</li>
+                        <li><strong style="color:#f44336;">3</strong> - Bad. Hard to finish.</li>
+                        <li><strong style="color:#e91e63;">2</strong> - Terrible. Complete waste of time.</li>
+                        <li><strong style="color:#9c27b0;">1</strong> - Abysmal. Actively harmful.</li>
+                    </ul>
+                </div>
+            </div>
         </div>
 
         <div class="user-grid">
-            <!-- Highest Rated -->
-            <div class="user-card">
+            <!-- Top 5 Highest Rated -->
+            <div class="user-card" style="grid-column: span 1;">
                 <h3>Highest Rated</h3>
                 <div style="margin-bottom: 1rem;">
                     <select id="stat-highlow-person" onchange="updateStats()">
@@ -546,35 +606,43 @@ window.renderStats = function (personFilter = 'ALL', avgPersonFilter = 'ALL', av
                         ${userOptions.replace(/value="([^"]+)"/g, (match, p1) => match + (p1 === personFilter ? ' selected' : ''))}
                     </select>
                 </div>
-                ${highest ? `
-                    <div class="media-item">
-                        <div class="media-type">${highest.type.toUpperCase()}</div>
-                        <div class="media-title">${highest.title}</div>
-                        <div style="color: var(--accent); font-weight: bold; font-size: 1.5rem; margin-top: 0.5rem;">${highest.rating}/10</div>
-                        <div class="media-thoughts" style="margin-top:0.5rem">Rated by ${highest.user} in ${highest.monthName}</div>
+                ${top5Highest.length > 0 ? top5Highest.map((item, idx) => `
+                    <div class="media-item" style="padding: 0.8rem; margin-bottom: 0.5rem;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <span style="color:var(--text-secondary); font-size:0.8rem; font-weight:bold;">#${idx + 1}</span>
+                                <strong>${item.title}</strong>
+                                <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">${item.type.toUpperCase()} • ${item.user} • ${item.monthName}</div>
+                            </div>
+                            <div style="color: var(--accent); font-weight: 800; font-size: 1.2rem;">${item.rating}</div>
+                        </div>
                     </div>
-                ` : `<p>No data available yet.</p>`}
+                `).join('') : '<p>No data available yet.</p>'}
             </div>
 
-            <!-- Lowest Rated -->
-            <div class="user-card">
+            <!-- Top 5 Lowest Rated -->
+            <div class="user-card" style="grid-column: span 1;">
                 <h3>Lowest Rated</h3>
                 <div style="visibility: hidden; margin-bottom: 1rem;">
                     <select><option>Spacer</option></select>
                 </div>
-                ${lowest ? `
-                    <div class="media-item">
-                        <div class="media-type">${lowest.type.toUpperCase()}</div>
-                        <div class="media-title">${lowest.title}</div>
-                        <div style="color: var(--primary-gradient); font-weight: bold; font-size: 1.5rem; margin-top: 0.5rem;">${lowest.rating}/10</div>
-                        <div class="media-thoughts" style="margin-top:0.5rem">Rated by ${lowest.user} in ${lowest.monthName}</div>
+                ${top5Lowest.length > 0 ? top5Lowest.map((item, idx) => `
+                    <div class="media-item" style="padding: 0.8rem; margin-bottom: 0.5rem;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <span style="color:var(--text-secondary); font-size:0.8rem; font-weight:bold;">#${idx + 1}</span>
+                                <strong>${item.title}</strong>
+                                <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">${item.type.toUpperCase()} • ${item.user} • ${item.monthName}</div>
+                            </div>
+                            <div style="color: var(--primary-gradient); font-weight: 800; font-size: 1.2rem;">${item.rating}</div>
+                        </div>
                     </div>
-                ` : `<p>No data available yet.</p>`}
+                `).join('') : '<p>No data available yet.</p>'}
             </div>
 
-            <!-- Average Scores -->
-            <div class="user-card" style="grid-column: 1 / -1;">
-                <h3>Average Score</h3>
+            <!-- Average Scores (Centered) -->
+            <div class="user-card" style="grid-column: 1 / -1; max-width: 600px; margin: 0 auto; width: 100%;">
+                <h3 style="text-align:center;">Average Score</h3>
                 <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
                     <div style="flex:1;">
                         <label style="font-size:0.8rem; color:var(--text-secondary);">Person</label>
@@ -604,6 +672,37 @@ window.renderStats = function (personFilter = 'ALL', avgPersonFilter = 'ALL', av
                     Based on ${avgRatings.length} ratings
                 </div>
             </div>
+            
+            <!-- Dictator Performance -->
+            <div class="user-card" style="grid-column: 1 / -1; margin-top: 2rem;">
+                <h2 style="text-align:center; margin-bottom: 2rem;">Dictator Performance</h2>
+                <div style="display: flex; justify-content: center; gap: 4rem; flex-wrap: wrap;">
+                    
+                    <!-- Benevolent Dictator -->
+                    <div style="display:flex; flex-direction:column; align-items:center; text-align:center;">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/e/eb/Lee_Kuan_Yew_1965_Standard_Restoration.jpg" style="width:120px; height:120px; border-radius:50%; object-fit:cover; margin-bottom:1rem; border: 3px solid #4CAF50;">
+                        <h3 style="color:#4CAF50; margin:0;">Benevolent Dictator</h3>
+                        <p style="color:var(--text-secondary); font-size:0.9rem; margin-top:0.3rem;">Highest rated global picks</p>
+                        ${bestDictator ? `
+                            <div style="font-size:1.5rem; font-weight:bold; margin-top:1rem;">${bestDictator}</div>
+                            <div style="color:var(--text-secondary);">${bestAvg.toFixed(1)}/10 avg score</div>
+                        ` : `<div style="margin-top:1rem; color:var(--text-secondary);">No dictator data yet</div>`}
+                    </div>
+
+                    <!-- Evil Dictator -->
+                    <div style="display:flex; flex-direction:column; align-items:center; text-align:center;">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/2/21/Muammar_al-Gaddafi_at_the_AU_summit.jpg" style="width:120px; height:120px; border-radius:50%; object-fit:cover; margin-bottom:1rem; border: 3px solid #F44336;">
+                        <h3 style="color:#F44336; margin:0;">Evil Dictator</h3>
+                        <p style="color:var(--text-secondary); font-size:0.9rem; margin-top:0.3rem;">Lowest rated global picks</p>
+                        ${worstDictator ? `
+                            <div style="font-size:1.5rem; font-weight:bold; margin-top:1rem;">${worstDictator}</div>
+                            <div style="color:var(--text-secondary);">${worstAvg.toFixed(1)}/10 avg score</div>
+                        ` : `<div style="margin-top:1rem; color:var(--text-secondary);">No dictator data yet</div>`}
+                    </div>
+
+                </div>
+            </div>
+
         </div>
     `;
 
@@ -620,3 +719,34 @@ window.updateStats = function () {
 // Initial load
 loadData();
 render();
+
+// --- Authentication ---
+const loginOverlay = document.getElementById('login-overlay');
+const appContainer = document.querySelector('.app-container');
+const headerUsernameLabel = document.getElementById('header-username-label');
+const logoutBtn = document.getElementById('logout-btn');
+
+let currentUser = localStorage.getItem('mediaTrackerUser');
+
+window.loginAs = function (user) {
+    currentUser = user;
+    localStorage.setItem('mediaTrackerUser', user);
+    loginOverlay.style.display = 'none';
+    appContainer.style.display = 'block';
+    headerUsernameLabel.textContent = `User: ${user}`;
+    renderContent(); // re-render to reflect the user if viewing a month
+};
+
+logoutBtn.addEventListener('click', () => {
+    currentUser = null;
+    localStorage.removeItem('mediaTrackerUser');
+    appContainer.style.display = 'none';
+    loginOverlay.style.display = 'flex';
+});
+
+if (currentUser) {
+    loginOverlay.style.display = 'none';
+    appContainer.style.display = 'block';
+    headerUsernameLabel.textContent = `User: ${currentUser}`;
+}
+
