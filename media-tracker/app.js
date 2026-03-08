@@ -512,7 +512,7 @@ function renderMediaItemsForUser(month, user, isEdit) {
                             </div>
                             ${entry.thoughts ? `<div style="margin-top:0.5rem;"><a class="read-review-link" style="color:var(--accent); cursor:pointer; font-size: 0.9rem; text-decoration:underline;" onclick="showReviewModal(this)" data-image="${displayImage || ''}" data-thoughts="${entry.thoughts.replace(/"/g, '&quot;')}">Read Review</a></div>` : ''}
                         </div>
-                        ${displayImage ? `<img src="${displayImage}" alt="Cover" class="media-thumbnail" />` : ''}
+                        ${displayImage ? `<img src="${displayImage}" alt="Cover" class="media-thumbnail" style="cursor: zoom-in;" onclick="document.getElementById('image-lightbox-img').src=this.src; document.getElementById('image-lightbox-modal').classList.remove('hidden');" />` : ''}
                     </div>
                 </div>
             `;
@@ -1236,6 +1236,15 @@ window.autoFetchImage = async function (user, type, isDictatorMode) {
         return;
     }
 
+    // For books, optionally append author to narrow the search
+    let bookQuery = encodeURIComponent(title);
+    if (type === 'book' && !isDictatorMode) {
+        const authorEl = document.getElementById(`edit-${user}-book-author`);
+        if (authorEl && authorEl.value.trim()) {
+            bookQuery += '+' + encodeURIComponent(authorEl.value.trim());
+        }
+    }
+
     const originalPlaceholder = imageEl.placeholder;
     imageEl.placeholder = "Searching for images...";
 
@@ -1243,7 +1252,7 @@ window.autoFetchImage = async function (user, type, isDictatorMode) {
 
     try {
         if (type === 'book') {
-            const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(title)}&limit=10`);
+            const res = await fetch(`https://openlibrary.org/search.json?q=${bookQuery}&limit=10`);
             const data = await res.json();
             if (data.docs) {
                 data.docs.forEach(doc => {
@@ -1342,6 +1351,14 @@ window.autoFetchGlobalImage = async function (type) {
     if (!title) {
         alert("Please enter a title first to search for an image.");
         return;
+    }
+
+    // For global book search, check if author title field has content
+    let bookQuery = encodeURIComponent(title);
+    if (type === 'book') {
+        // Try to grab author from the title element label context
+        const authorEl = document.querySelector('#global-book-image');
+        // We just use the title itself here since global picks don't have a dedicated author field
     }
 
     const originalPlaceholder = imageEl.placeholder;
