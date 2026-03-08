@@ -37,6 +37,21 @@ function saveData() {
     localStorage.setItem('mediaTrackerState', JSON.stringify(state));
 }
 
+window.getRatingColor = function (rating) {
+    if (!rating && rating !== 0) return 'var(--text-secondary)';
+    const r = parseFloat(rating);
+    if (r >= 10) return '#4caf50';
+    if (r >= 9) return '#8bc34a';
+    if (r >= 8) return '#cddc39';
+    if (r >= 7) return '#ffeb3b';
+    if (r >= 6) return '#ffc107';
+    if (r >= 5) return '#ff9800';
+    if (r >= 4) return '#ff5722';
+    if (r >= 3) return '#f44336';
+    if (r >= 2) return '#e91e63';
+    return '#9c27b0';
+}
+
 window.exportData = function () {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
     const dlAnchorElem = document.createElement('a');
@@ -312,10 +327,23 @@ function renderContent() {
     const month = state.months.find(m => m.id === state.currentMonthId);
     if (!month) return;
 
+    const sortedMonths = [...state.months].sort((a, b) => {
+        const keyA = a.sortKey || parseInt(a.id);
+        const keyB = b.sortKey || parseInt(b.id);
+        return keyA - keyB;
+    });
+    const currentMonthIndex = sortedMonths.findIndex(m => m.id === state.currentMonthId);
+    const prevMonth = currentMonthIndex > 0 ? sortedMonths[currentMonthIndex - 1] : null;
+    const nextMonth = currentMonthIndex < sortedMonths.length - 1 ? sortedMonths[currentMonthIndex + 1] : null;
+
     let html = `
         <div class="month-header">
             <div class="month-title">
                 <h1>${month.name}</h1>
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; margin-top: -0.2rem;">
+                    ${prevMonth ? `<button class="btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.8rem; border-color: rgba(255,255,255,0.2);" onclick="state.currentMonthId='${prevMonth.id}'; saveData(); render();">&larr; Previous</button>` : ''}
+                    ${nextMonth ? `<button class="btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.8rem; border-color: rgba(255,255,255,0.2);" onclick="state.currentMonthId='${nextMonth.id}'; saveData(); render();">Next &rarr;</button>` : ''}
+                </div>
                 <div class="month-meta">
                     ${month.mode === 'regular' ? 'Regular Month' : `Dictator Month (Dictator: ${month.dictator})`}
                 </div>
@@ -426,7 +454,7 @@ function renderMediaItemsForUser(month, user, isEdit) {
                         <div class="media-text-content" style="flex: 1;">
                             <div class="media-title-row">
                                 <div class="media-title">${titleDisplay}</div>
-                                ${entry.rating ? `<div class="media-rating">${entry.rating}/10</div>` : ''}
+                                ${entry.rating ? `<div class="media-rating" style="color: ${getRatingColor(entry.rating)};">${entry.rating}/10</div>` : ''}
                             </div>
                             ${entry.thoughts ? `<div style="margin-top:0.5rem;"><a class="read-review-link" style="color:var(--accent); cursor:pointer; font-size: 0.9rem; text-decoration:underline;" onclick="showReviewModal(this)" data-thoughts="${entry.thoughts.replace(/"/g, '&quot;')}">Read Review</a></div>` : ''}
                         </div>
@@ -555,8 +583,11 @@ function getAllRatings() {
     return ratings;
 }
 
-window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL', avgPersonFilter = 'ALL', avgMediaFilter = 'ALL', dictatorMediaFilter = 'ALL') {
+window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL', avgPersonFilter = 'ALL', avgMediaFilter = 'ALL', dictatorMediaFilter = 'ALL', histPersonFilter = null, histMediaFilter = null) {
     const ratings = getAllRatings();
+
+    if (histPersonFilter) window.histogramPersonFilter = histPersonFilter;
+    if (histMediaFilter) window.histogramMediaFilter = histMediaFilter;
 
     // Filters for High/Low
     let highLowRatings = ratings;
@@ -670,7 +701,7 @@ window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL',
                                         <strong>${item.title}</strong>
                                         <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">${item.type.toUpperCase()} • ${item.user} • ${item.monthName}</div>
                                     </div>
-                                    <div style="color: var(--accent); font-weight: 800; font-size: 1.2rem;">${item.rating}</div>
+                                    <div style="color: ${getRatingColor(item.rating)}; font-weight: 800; font-size: 1.2rem;">${item.rating}</div>
                                 </div>
                             </div>
                         `).join('') : '<p>No data available yet.</p>'}
@@ -686,7 +717,7 @@ window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL',
                                         <strong>${item.title}</strong>
                                         <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">${item.type.toUpperCase()} • ${item.user} • ${item.monthName}</div>
                                     </div>
-                                    <div style="color: var(--primary-gradient); font-weight: 800; font-size: 1.2rem;">${item.rating}</div>
+                                    <div style="color: ${getRatingColor(item.rating)}; font-weight: 800; font-size: 1.2rem;">${item.rating}</div>
                                 </div>
                             </div>
                         `).join('') : '<p>No data available yet.</p>'}
@@ -732,6 +763,32 @@ window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL',
                 <h3 style="text-align:center; margin-bottom: 1rem;">Average Rating Trends Over Time</h3>
                 <div style="position: relative; height: 300px; width: 100%;">
                     <canvas id="ratingChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Histogram Chart -->
+            <div class="user-card" style="grid-column: 1 / -1; margin-top: 2rem;">
+                <h3 style="text-align:center; margin-bottom: 1rem;">Score Frequency Histogram</h3>
+                <div style="display: flex; gap: 1rem; margin-bottom: 1rem; justify-content: center;">
+                    <div>
+                        <label style="font-size:0.8rem; color:var(--text-secondary);">Person</label>
+                        <select id="stat-hist-person" onchange="updateStats()">
+                            <option value="ALL">All Members</option>
+                            ${userOptions}
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:0.8rem; color:var(--text-secondary);">Media</label>
+                        <select id="stat-hist-media" onchange="updateStats()">
+                            <option value="ALL">All Media</option>
+                            <option value="game">Games</option>
+                            <option value="movie">Movies</option>
+                            <option value="book">Books</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="histogramChart"></canvas>
                 </div>
             </div>
             
@@ -854,6 +911,78 @@ window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL',
                     }
                 }
             });
+
+            // Render Histogram
+            const histCtx = document.getElementById('histogramChart');
+            if (histCtx) {
+                const histPersonF = document.getElementById('stat-hist-person');
+                const histMediaF = document.getElementById('stat-hist-media');
+
+                if (histPersonF && window.histogramPersonFilter) {
+                    histPersonF.value = window.histogramPersonFilter;
+                }
+                if (histMediaF && window.histogramMediaFilter) {
+                    histMediaF.value = window.histogramMediaFilter;
+                }
+
+                const histPerson = histPersonF ? histPersonF.value : 'ALL';
+                const histMedia = histMediaF ? histMediaF.value : 'ALL';
+
+                window.histogramPersonFilter = histPerson;
+                window.histogramMediaFilter = histMedia;
+
+                let histRatings = ratings;
+                if (histPerson !== 'ALL') histRatings = histRatings.filter(r => r.user === histPerson);
+                if (histMedia !== 'ALL') histRatings = histRatings.filter(r => r.type === histMedia);
+
+                const scoreCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0 };
+
+                histRatings.forEach(r => {
+                    const rounded = Math.round(r.rating);
+                    if (rounded >= 1 && rounded <= 10) {
+                        scoreCounts[rounded]++;
+                    }
+                });
+
+                const histData = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(s => scoreCounts[s]);
+                const histColors = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(s => getRatingColor(s));
+
+                if (window.myHistogramChart) {
+                    window.myHistogramChart.destroy();
+                }
+
+                window.myHistogramChart = new Chart(histCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+                        datasets: [{
+                            label: 'Frequency',
+                            data: histData,
+                            backgroundColor: histColors,
+                            borderColor: histColors,
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { color: '#8b949e', stepSize: 1 },
+                                grid: { color: 'rgba(255,255,255,0.05)' }
+                            },
+                            x: {
+                                ticks: { color: '#8b949e' },
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+            }
         }
     }, 100);
 };
@@ -864,7 +993,14 @@ window.updateStats = function () {
     const avgPersonF = document.getElementById('stat-avg-person').value;
     const avgMediaF = document.getElementById('stat-avg-media').value;
     const dictatorMediaF = document.getElementById('stat-dictator-media').value;
-    renderStats(personF, highLowMediaF, avgPersonF, avgMediaF, dictatorMediaF);
+
+    // Grab histogram values if they exist in the DOM
+    const histPersonElem = document.getElementById('stat-hist-person');
+    const histMediaElem = document.getElementById('stat-hist-media');
+    const histPersonF = histPersonElem ? histPersonElem.value : null;
+    const histMediaF = histMediaElem ? histMediaElem.value : null;
+
+    renderStats(personF, highLowMediaF, avgPersonF, avgMediaF, dictatorMediaF, histPersonF, histMediaF);
 };
 
 // --- Authentication ---
