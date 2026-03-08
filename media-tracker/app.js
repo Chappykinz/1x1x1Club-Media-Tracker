@@ -29,6 +29,7 @@ function saveData() {
 // --- DOM Elements ---
 const nav = document.getElementById('month-nav');
 const addMonthBtn = document.getElementById('add-month-btn');
+const deleteMonthBtn = document.getElementById('delete-month-btn');
 const newMonthModal = document.getElementById('new-month-modal');
 const newMonthForm = document.getElementById('new-month-form');
 const cancelNewMonthBtn = document.getElementById('cancel-new-month');
@@ -38,6 +39,24 @@ const mainContent = document.getElementById('main-content');
 const statsBtn = document.getElementById('stats-btn');
 
 // --- Event Listeners ---
+deleteMonthBtn.addEventListener('click', () => {
+    if (!state.currentMonthId) return;
+    const month = state.months.find(m => m.id === state.currentMonthId);
+    if (!month) return;
+
+    if (confirm(`Are you sure you want to delete ${month.name}? This action cannot be undone.`)) {
+        state.months = state.months.filter(m => m.id !== state.currentMonthId);
+        if (state.months.length > 0) {
+            state.currentMonthId = state.months[state.months.length - 1].id;
+            state.viewMode = 'month';
+        } else {
+            state.currentMonthId = null;
+        }
+        saveData();
+        render();
+    }
+});
+
 statsBtn.addEventListener('click', () => {
     state.viewMode = 'stats';
     render();
@@ -114,6 +133,12 @@ newMonthForm.addEventListener('submit', (e) => {
 function render() {
     renderNav();
     renderContent();
+
+    if (currentUser === 'Andrew' && state.viewMode === 'month' && state.months.length > 0) {
+        deleteMonthBtn.classList.remove('hidden');
+    } else {
+        deleteMonthBtn.classList.add('hidden');
+    }
 }
 
 function renderNav() {

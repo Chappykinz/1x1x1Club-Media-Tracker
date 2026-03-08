@@ -52,7 +52,12 @@
                     </div>
                 </div>
                 <button id="stats-btn" class="btn-secondary">Stats</button>
-                <button id="add-month-btn" class="btn-primary">+ New Month</button>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    <button id="add-month-btn" class="btn-primary">+ New Month</button>
+                    <button id="delete-month-btn" class="btn-secondary hidden"
+                        style="border-color: #F44336; color: #F44336; font-size: 0.8rem; padding: 0.3rem 0.6rem;">Delete
+                        Month</button>
+                </div>
             </div>
         </header>
 
@@ -141,7 +146,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="app.js?v=5"></script>
+    <script src="app.js?v=6"></script>
 </body>
 
 </html>
