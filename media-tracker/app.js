@@ -8,6 +8,10 @@ const USER_COLORS = {
     "Sean": "#845EC2"
 };
 
+// Google Custom Search config
+const GOOGLE_SEARCH_KEY = "AIzaSyA0cwsJVUkP4qu5JAgPGMXvdxOVnI_gZ8E";
+const GOOGLE_SEARCH_CX = "d320397d89639490a";
+
 // --- Firebase Setup ---
 const firebaseConfig = {
     apiKey: "AIzaSyA0cwsJVUkP4qu5JAgPGMXvdxOVnI_gZ8E",
@@ -1251,6 +1255,18 @@ window.autoFetchImage = async function (user, type, isDictatorMode) {
     let imageUrls = [];
 
     try {
+        // --- Primary: Google Custom Image Search ---
+        try {
+            const q = type === 'book' ? bookQuery : encodeURIComponent(title + ' ' + type + ' cover');
+            const googleRes = await fetch(`https://www.googleapis.com/customsearch/v1?key=${GOOGLE_SEARCH_KEY}&cx=${GOOGLE_SEARCH_CX}&searchType=image&q=${q}&num=10`);
+            const googleData = await googleRes.json();
+            if (googleData.items) {
+                googleData.items.forEach(item => {
+                    if (item.link) imageUrls.push(item.link);
+                });
+            }
+        } catch (e) { console.warn('Google image search failed, using fallbacks.', e); }
+
         if (type === 'book') {
             const res = await fetch(`https://openlibrary.org/search.json?q=${bookQuery}&limit=10`);
             const data = await res.json();
@@ -1367,6 +1383,18 @@ window.autoFetchGlobalImage = async function (type) {
     let imageUrls = [];
 
     try {
+        // --- Primary: Google Custom Image Search ---
+        try {
+            const q = encodeURIComponent(title + ' ' + type + ' cover');
+            const googleRes = await fetch(`https://www.googleapis.com/customsearch/v1?key=${GOOGLE_SEARCH_KEY}&cx=${GOOGLE_SEARCH_CX}&searchType=image&q=${q}&num=10`);
+            const googleData = await googleRes.json();
+            if (googleData.items) {
+                googleData.items.forEach(item => {
+                    if (item.link) imageUrls.push(item.link);
+                });
+            }
+        } catch (e) { console.warn('Google image search failed, using fallbacks.', e); }
+
         if (type === 'book') {
             const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(title)}&limit=10`);
             const data = await res.json();
