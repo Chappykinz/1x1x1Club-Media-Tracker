@@ -8,23 +8,42 @@ let state = {
     viewMode: 'month' // 'month' or 'stats'
 };
 
-function loadData() {
+async function loadData() {
     const saved = localStorage.getItem('mediaTrackerState');
     if (saved) {
         state = JSON.parse(saved);
+        render();
     } else {
-        // Initialize with default empty state if first time
-        state = {
-            months: [],
-            currentMonthId: null
-        };
-        saveData();
+        try {
+            const response = await fetch('data.json');
+            if (response.ok) {
+                state = await response.json();
+                saveData();
+                render();
+            } else {
+                state = { months: [], currentMonthId: null };
+                saveData();
+                render();
+            }
+        } catch (e) {
+            state = { months: [], currentMonthId: null };
+            saveData();
+            render();
+        }
     }
 }
 
 function saveData() {
     localStorage.setItem('mediaTrackerState', JSON.stringify(state));
 }
+
+window.exportData = function () {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+    const dlAnchorElem = document.createElement('a');
+    dlAnchorElem.setAttribute("href", dataStr);
+    dlAnchorElem.setAttribute("download", "data.json");
+    dlAnchorElem.click();
+};
 
 // --- DOM Elements ---
 const nav = document.getElementById('month-nav');
@@ -904,5 +923,4 @@ if (currentUser) {
 
 // Initial load
 loadData();
-render();
 
