@@ -85,6 +85,9 @@ window.getRatingColor = function (rating) {
 
 // --- DOM Elements ---
 const nav = document.getElementById('month-nav');
+const adminMenuContainer = document.getElementById('admin-menu-container');
+const adminDropdownBtn = document.getElementById('admin-dropdown-btn');
+const adminDropdownContent = document.getElementById('admin-dropdown-content');
 const addMonthBtn = document.getElementById('add-month-btn');
 const deleteMonthBtn = document.getElementById('delete-month-btn');
 const newMonthModal = document.getElementById('new-month-modal');
@@ -96,6 +99,17 @@ const mainContent = document.getElementById('main-content');
 const statsBtn = document.getElementById('stats-btn');
 
 // --- Event Listeners ---
+if (adminDropdownBtn) {
+    adminDropdownBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        adminDropdownContent.classList.toggle('hidden');
+    });
+    document.addEventListener('click', (e) => {
+        if (!adminMenuContainer.contains(e.target)) {
+            adminDropdownContent.classList.add('hidden');
+        }
+    });
+}
 deleteMonthBtn.addEventListener('click', () => {
     if (!state.currentMonthId) return;
     const month = state.months.find(m => m.id === state.currentMonthId);
@@ -191,10 +205,15 @@ function render() {
     renderNav();
     renderContent();
 
-    if (currentUser === 'Andrew' && state.viewMode === 'month' && state.months.length > 0) {
-        deleteMonthBtn.classList.remove('hidden');
+    if (currentUser === 'Andrew') {
+        adminMenuContainer.classList.remove('hidden');
+        if (state.viewMode === 'month' && state.months.length > 0) {
+            deleteMonthBtn.classList.remove('hidden');
+        } else {
+            deleteMonthBtn.classList.add('hidden');
+        }
     } else {
-        deleteMonthBtn.classList.add('hidden');
+        adminMenuContainer.classList.add('hidden');
     }
 }
 
@@ -1040,3 +1059,19 @@ if (currentUser) {
 
 // Initial load
 loadData();
+
+// --- Scroll Behavior ---
+let lastScrollY = window.scrollY;
+window.addEventListener('scroll', () => {
+    const header = document.querySelector('.glass-header');
+    if (!header) return;
+
+    if (window.scrollY > lastScrollY && window.scrollY > 100) {
+        // Scrolling down
+        header.classList.add('hidden-scroll');
+    } else {
+        // Scrolling up
+        header.classList.remove('hidden-scroll');
+    }
+    lastScrollY = window.scrollY;
+});
