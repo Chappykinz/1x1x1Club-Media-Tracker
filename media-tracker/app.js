@@ -121,44 +121,101 @@ function renderNav() {
         return keyA - keyB;
     });
 
-    sortedMonths.forEach((month, index) => {
-        const isActive = state.viewMode === 'month' && month.id === state.currentMonthId;
+    const currentMonthIndex = sortedMonths.findIndex(m => m.id === state.currentMonthId);
+    if (currentMonthIndex === -1 && sortedMonths.length > 0) return;
 
-        if (isActive && index > 0) {
+    if (sortedMonths.length > 0) {
+        const currentMonth = sortedMonths[currentMonthIndex];
+        const prevMonth = currentMonthIndex > 0 ? sortedMonths[currentMonthIndex - 1] : null;
+        const nextMonth = currentMonthIndex < sortedMonths.length - 1 ? sortedMonths[currentMonthIndex + 1] : null;
+
+        const activeMonthContainer = document.createElement('div');
+        activeMonthContainer.style.display = 'flex';
+        activeMonthContainer.style.alignItems = 'center';
+        activeMonthContainer.style.gap = '0.5rem';
+
+        if (prevMonth) {
             const leftBtn = document.createElement('button');
             leftBtn.innerHTML = '&larr;';
             leftBtn.style.cssText = 'background:transparent; border:none; color:var(--text-secondary); cursor:pointer; padding: 0.5rem; font-size: 1.2rem;';
             leftBtn.onclick = () => {
-                state.currentMonthId = sortedMonths[index - 1].id;
+                state.currentMonthId = prevMonth.id;
+                state.viewMode = 'month';
                 saveData();
                 render();
             };
-            nav.appendChild(leftBtn);
+            activeMonthContainer.appendChild(leftBtn);
         }
 
-        const a = document.createElement('a');
-        a.className = `nav-link ${isActive ? 'active' : ''}`;
-        a.textContent = month.name;
-        a.onclick = () => {
+        const currA = document.createElement('a');
+        currA.className = `nav-link active`;
+        currA.textContent = currentMonth.name;
+        currA.onclick = () => {
             state.viewMode = 'month';
-            state.currentMonthId = month.id;
-            saveData();
             render();
         };
-        nav.appendChild(a);
+        activeMonthContainer.appendChild(currA);
 
-        if (isActive && index < sortedMonths.length - 1) {
+        if (nextMonth) {
             const rightBtn = document.createElement('button');
             rightBtn.innerHTML = '&rarr;';
             rightBtn.style.cssText = 'background:transparent; border:none; color:var(--text-secondary); cursor:pointer; padding: 0.5rem; font-size: 1.2rem;';
             rightBtn.onclick = () => {
-                state.currentMonthId = sortedMonths[index + 1].id;
+                state.currentMonthId = nextMonth.id;
+                state.viewMode = 'month';
                 saveData();
                 render();
             };
-            nav.appendChild(rightBtn);
+            activeMonthContainer.appendChild(rightBtn);
         }
-    });
+
+        nav.appendChild(activeMonthContainer);
+
+        // Dropdown for past months
+        const otherMonths = sortedMonths.filter(m => m.id !== state.currentMonthId);
+        if (otherMonths.length > 0) {
+            const dropdownContainer = document.createElement('div');
+            dropdownContainer.className = 'dropdown';
+
+            const dropdownBtn = document.createElement('button');
+            dropdownBtn.className = 'btn-secondary';
+            dropdownBtn.textContent = 'Past Months ▼';
+            dropdownBtn.style.padding = '0.5rem 1rem';
+            dropdownBtn.onclick = (e) => {
+                e.stopPropagation();
+                const content = document.getElementById('past-months-dropdown-content');
+                content.classList.toggle('hidden');
+            };
+
+            const dropdownContent = document.createElement('div');
+            dropdownContent.id = 'past-months-dropdown-content';
+            dropdownContent.className = 'dropdown-content hidden';
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', () => {
+                const content = document.getElementById('past-months-dropdown-content');
+                if (content) content.classList.add('hidden');
+            });
+
+            // Add other months reversed so newest is on top
+            [...otherMonths].reverse().forEach(month => {
+                const a = document.createElement('a');
+                a.textContent = month.name;
+                a.style.cursor = 'pointer';
+                a.onclick = () => {
+                    state.viewMode = 'month';
+                    state.currentMonthId = month.id;
+                    saveData();
+                    render();
+                };
+                dropdownContent.appendChild(a);
+            });
+
+            dropdownContainer.appendChild(dropdownBtn);
+            dropdownContainer.appendChild(dropdownContent);
+            nav.appendChild(dropdownContainer);
+        }
+    }
 }
 
 function renderContent() {
