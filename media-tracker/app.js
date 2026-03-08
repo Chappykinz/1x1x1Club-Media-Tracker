@@ -121,9 +121,23 @@ function renderNav() {
         return keyA - keyB;
     });
 
-    sortedMonths.forEach(month => {
+    sortedMonths.forEach((month, index) => {
+        const isActive = state.viewMode === 'month' && month.id === state.currentMonthId;
+
+        if (isActive && index > 0) {
+            const leftBtn = document.createElement('button');
+            leftBtn.innerHTML = '&larr;';
+            leftBtn.style.cssText = 'background:transparent; border:none; color:var(--text-secondary); cursor:pointer; padding: 0.5rem; font-size: 1.2rem;';
+            leftBtn.onclick = () => {
+                state.currentMonthId = sortedMonths[index - 1].id;
+                saveData();
+                render();
+            };
+            nav.appendChild(leftBtn);
+        }
+
         const a = document.createElement('a');
-        a.className = `nav-link ${state.viewMode === 'month' && month.id === state.currentMonthId ? 'active' : ''}`;
+        a.className = `nav-link ${isActive ? 'active' : ''}`;
         a.textContent = month.name;
         a.onclick = () => {
             state.viewMode = 'month';
@@ -132,6 +146,18 @@ function renderNav() {
             render();
         };
         nav.appendChild(a);
+
+        if (isActive && index < sortedMonths.length - 1) {
+            const rightBtn = document.createElement('button');
+            rightBtn.innerHTML = '&rarr;';
+            rightBtn.style.cssText = 'background:transparent; border:none; color:var(--text-secondary); cursor:pointer; padding: 0.5rem; font-size: 1.2rem;';
+            rightBtn.onclick = () => {
+                state.currentMonthId = sortedMonths[index + 1].id;
+                saveData();
+                render();
+            };
+            nav.appendChild(rightBtn);
+        }
     });
 }
 
