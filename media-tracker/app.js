@@ -70,6 +70,12 @@ newMonthForm.addEventListener('submit', (e) => {
     const name = `${monthName} ${year}`;
     const sortKey = parseInt(year) * 100 + parseInt(monthSelect.value);
 
+    // Prevent duplicate months
+    if (state.months.some(m => m.name === name)) {
+        alert(`The month "${name}" has already been tracked. Please select a different month or year.`);
+        return;
+    }
+
     const mode = document.getElementById('month-mode-input').value;
     const dictator = document.getElementById('dictator-name-input').value;
 
