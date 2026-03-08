@@ -1,6 +1,13 @@
 const USERS = ["Andrew", "Tom", "Ross", "Sean"];
 const MEDIA_TYPES = ["game", "movie", "book"];
 
+const USER_COLORS = {
+    "Andrew": "#FF6B6B",
+    "Tom": "#4ECDC4",
+    "Ross": "#FFE66D",
+    "Sean": "#845EC2"
+};
+
 // --- Firebase Setup ---
 const firebaseConfig = {
     apiKey: "AIzaSyA0cwsJVUkP4qu5JAgPGMXvdxOVnI_gZ8E",
@@ -371,13 +378,26 @@ function renderContent() {
     const month = state.months.find(m => m.id === state.currentMonthId);
     if (!month) return;
 
+    const sortedMonths = [...state.months].sort((a, b) => {
+        const keyA = a.sortKey || parseInt(a.id);
+        const keyB = b.sortKey || parseInt(b.id);
+        return keyA - keyB;
+    });
+    const currentMonthIndex = sortedMonths.findIndex(m => m.id === state.currentMonthId);
+    const prevMonth = currentMonthIndex > 0 ? sortedMonths[currentMonthIndex - 1] : null;
+    const nextMonth = currentMonthIndex < sortedMonths.length - 1 ? sortedMonths[currentMonthIndex + 1] : null;
+
     let html = `
-        <div class="month-header">
-            <div class="month-title">
-                <h2>${month.name}</h2>
-                <div class="month-meta">
-                    ${month.mode === 'regular' ? 'Regular Month' : `Dictator Month (Dictator: ${month.dictator})`}
+        <div class="month-header" style="flex-direction: column; align-items: center; justify-content: center; gap: 1rem;">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 1.5rem; width: 100%;">
+                ${prevMonth ? `<button class="btn-secondary" style="padding: 0.5rem; border: none;" onclick="state.currentMonthId = '${prevMonth.id}'; saveData(); render();">&larr; Prev</button>` : '<div style="width: 60px;"></div>'}
+                <div class="month-title" style="text-align: center; margin: 0;">
+                    <h2 style="margin: 0;">${month.name}</h2>
+                    <div class="month-meta">
+                        ${month.mode === 'regular' ? 'Regular Month' : `Dictator Month (Dictator: ${month.dictator})`}
+                    </div>
                 </div>
+                ${nextMonth ? `<button class="btn-secondary" style="padding: 0.5rem; border: none;" onclick="state.currentMonthId = '${nextMonth.id}'; saveData(); render();">Next &rarr;</button>` : '<div style="width: 60px;"></div>'}
             </div>
             ${month.mode === 'dictator' && currentUser === month.dictator ? `<button class="btn-primary" onclick="showGlobalPicksModal()">Set Dictator Picks</button>` : ''}
         </div>
@@ -393,7 +413,7 @@ function renderContent() {
         html += `
             <div class="user-card" id="user-card-${user}">
                 <div class="user-card-header">
-                    <div class="avatar">${user[0]}</div>
+                    <div class="avatar" style="background: ${USER_COLORS[user] || 'var(--card-hover)'};">${user[0]}</div>
                     <div class="user-name">${user}</div>
                     ${currentUser === user ? `<button class="btn-secondary" style="margin-left:auto; padding: 0.3rem 0.6rem; font-size: 0.8rem;" onclick="startEdit('${user}')">Edit</button>` : '<div style="margin-left:auto;"></div>'}
                 </div>
@@ -437,6 +457,27 @@ function renderMediaItemsForUser(month, user, isEdit) {
         const displayTitle = isDictatorMode ? globalTitle : entry.title;
         const titlePlaceholder = type.charAt(0).toUpperCase() + type.slice(1) + ' Title';
 
+        let extraFields = '';
+        let extraDisplay = '';
+        if (type === 'book') {
+            extraFields = `<input type="text" id="edit-${user}-book-author" value="${entry.author || ''}" placeholder="Author" style="margin-top: 0.5rem;" />`;
+            if (entry.author) extraDisplay = `<div style="font-size:0.85rem; color:var(--text-secondary); margin-top:0.2rem;">by ${entry.author}</div>`;
+        } else if (type === 'game') {
+            extraFields = `
+                <select id="edit-${user}-game-platform" style="margin-top: 0.5rem; width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: white;">
+                    <option value="" ${!entry.platform ? 'selected' : ''}>Played on...</option>
+                    <option value="PC (Keyboard)" ${entry.platform === 'PC (Keyboard)' ? 'selected' : ''}>PC (Keyboard)</option>
+                    <option value="PC (Controller)" ${entry.platform === 'PC (Controller)' ? 'selected' : ''}>PC (Controller)</option>
+                    <option value="Console - Playstation" ${entry.platform === 'Console - Playstation' ? 'selected' : ''}>Console - Playstation</option>
+                    <option value="Console - Nintendo" ${entry.platform === 'Console - Nintendo' ? 'selected' : ''}>Console - Nintendo</option>
+                    <option value="Console - Xbox" ${entry.platform === 'Console - Xbox' ? 'selected' : ''}>Console - Xbox</option>
+                    <option value="Handheld" ${entry.platform === 'Handheld' ? 'selected' : ''}>Handheld</option>
+                    <option value="Multiple" ${entry.platform === 'Multiple' ? 'selected' : ''}>Multiple</option>
+                </select>
+            `;
+            if (entry.platform) extraDisplay = `<div style="font-size:0.85rem; color:var(--accent); margin-top:0.2rem;">🎮 ${entry.platform}</div>`;
+        }
+
         if (isEdit) {
             output += `
                 <div class="form-group">
@@ -444,21 +485,25 @@ function renderMediaItemsForUser(month, user, isEdit) {
                     ${isDictatorMode ? `<div style="font-size: 0.9rem; margin-bottom: 0.5rem; padding: 0.5rem; background: rgba(0,0,0,0.2); border-radius: 4px;">${globalTitle || 'Wait for Dictator Pick...'}</div>` :
                     `<input type="text" id="edit-${user}-${type}-title" value="${entry.title || ''}" placeholder="${titlePlaceholder}" />`
                 }
-                    <input type="text" id="edit-${user}-${type}-image" value="${entry.imageUrl || ''}" placeholder="Cover Image URL (Optional)" style="margin-top: 0.5rem;" />
+                    ${extraFields}
+                    <div style="display: flex; margin-top: 0.5rem;">
+                        <input type="text" id="edit-${user}-${type}-image" value="${entry.imageUrl || ''}" placeholder="Cover Image URL (Optional)" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0;" />
+                        <button type="button" class="btn-secondary" style="border-top-left-radius: 0; border-bottom-left-radius: 0; padding: 0 1rem; border-color: rgba(255,255,255,0.1); background: rgba(0,0,0,0.2);" onclick="autoFetchImage('${user}', '${type}', ${isDictatorMode})" title="Auto-find Image based on Title">🔍 Fetch</button>
+                    </div>
                     <input type="number" id="edit-${user}-${type}-rating" value="${entry.rating || ''}" placeholder="Rating (1-10)" min="1" max="10" step="0.5" style="margin-top: 0.5rem;" />
                     <textarea id="edit-${user}-${type}-thoughts" placeholder="Your thoughts..." rows="3" style="margin-top: 0.5rem;">${entry.thoughts || ''}</textarea>
                 </div>
             `;
         } else {
-            const titleDisplay = displayTitle || `<span style="opacity: 0.3">No ${type} added</span>`;
+            const titleDisplay = displayTitle ? `<strong>${displayTitle}</strong>${extraDisplay}` : `<span style="opacity: 0.3">No ${type} added</span>`;
             output += `
                 <div class="user-item">
                     <div class="media-type">${type.toUpperCase()}</div>
                     <div class="media-content">
                         <div class="media-text-content" style="flex: 1;">
                             <div class="media-title-row">
-                                <div class="media-title">${titleDisplay}</div>
-                                ${entry.rating ? `<div class="media-rating" style="color: ${getRatingColor(entry.rating)};">${entry.rating}/10</div>` : ''}
+                                <div class="media-title" style="flex:1;">${titleDisplay}</div>
+                                ${entry.rating ? `<div class="media-rating" style="color: ${getRatingColor(entry.rating)}; align-self: flex-start;">${entry.rating}/10</div>` : ''}
                             </div>
                             ${entry.thoughts ? `<div style="margin-top:0.5rem;"><a class="read-review-link" style="color:var(--accent); cursor:pointer; font-size: 0.9rem; text-decoration:underline;" onclick="showReviewModal(this)" data-thoughts="${entry.thoughts.replace(/"/g, '&quot;')}">Read Review</a></div>` : ''}
                         </div>
@@ -510,6 +555,14 @@ window.saveEdit = function (user) {
         month.entries[user][type].imageUrl = document.getElementById(`edit-${user}-${type}-image`).value.trim();
         month.entries[user][type].rating = document.getElementById(`edit-${user}-${type}-rating`).value;
         month.entries[user][type].thoughts = document.getElementById(`edit-${user}-${type}-thoughts`).value.trim();
+
+        if (type === 'book') {
+            const authorEl = document.getElementById(`edit-${user}-book-author`);
+            if (authorEl) month.entries[user][type].author = authorEl.value.trim();
+        } else if (type === 'game') {
+            const platformEl = document.getElementById(`edit-${user}-game-platform`);
+            if (platformEl) month.entries[user][type].platform = platformEl.value;
+        }
     });
 
     saveData();
@@ -574,6 +627,7 @@ function getAllRatings() {
                         ratings.push({
                             monthId: month.id,
                             monthName: month.name,
+                            year: month.name.split(' ').pop(),
                             user: user,
                             type: type,
                             title: title,
@@ -587,11 +641,12 @@ function getAllRatings() {
     return ratings;
 }
 
-window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL', avgPersonFilter = 'ALL', avgMediaFilter = 'ALL', dictatorMediaFilter = 'ALL', histPersonFilter = null, histMediaFilter = null) {
+window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL', avgPersonFilter = 'ALL', avgMediaFilter = 'ALL', dictatorMediaFilter = 'ALL', histPersonFilter = null, histMediaFilter = null, highLowYearFilter = 'ALL', histYearFilter = 'ALL', dictatorYearFilter = 'ALL') {
     const ratings = getAllRatings();
 
     if (histPersonFilter) window.histogramPersonFilter = histPersonFilter;
     if (histMediaFilter) window.histogramMediaFilter = histMediaFilter;
+    if (histYearFilter) window.histogramYearFilter = histYearFilter;
 
     // Filters for High/Low
     let highLowRatings = ratings;
@@ -600,6 +655,9 @@ window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL',
     }
     if (highLowMediaFilter !== 'ALL') {
         highLowRatings = highLowRatings.filter(r => r.type === highLowMediaFilter);
+    }
+    if (highLowYearFilter !== 'ALL') {
+        highLowRatings = highLowRatings.filter(r => r.year === highLowYearFilter);
     }
 
     // Sort into top 5
@@ -628,6 +686,9 @@ window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL',
     let worstDictatorItem = null;
 
     state.months.forEach(month => {
+        const monthYear = month.name.split(' ').pop();
+        if (dictatorYearFilter !== 'ALL' && monthYear !== dictatorYearFilter) return;
+
         if (month.mode === 'dictator' && month.dictator) {
             MEDIA_TYPES.forEach(type => {
                 if (dictatorMediaFilter !== 'ALL' && type !== dictatorMediaFilter) return;
@@ -662,9 +723,11 @@ window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL',
 
     const selPerson = p => p === personFilter ? 'selected' : '';
     const selHighLowMedia = m => m === highLowMediaFilter ? 'selected' : '';
+    const selHighLowYear = y => y === highLowYearFilter ? 'selected' : '';
     const selAvgPerson = p => p === avgPersonFilter ? 'selected' : '';
     const selAvgMedia = m => m === avgMediaFilter ? 'selected' : '';
     const selDictatorMedia = m => m === dictatorMediaFilter ? 'selected' : '';
+    const selDictatorYear = y => y === dictatorYearFilter ? 'selected' : '';
 
     const html = `
         <div class="month-header">
@@ -680,6 +743,11 @@ window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL',
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
                     <h3 style="margin:0;">Highest & Lowest Rated</h3>
                     <div style="display:flex; gap:1rem; flex-wrap: wrap;">
+                        <select id="stat-highlow-year" onchange="updateStats()">
+                            <option value="ALL" ${selHighLowYear('ALL')}>All Years</option>
+                            <option value="2025" ${selHighLowYear('2025')}>2025</option>
+                            <option value="2026" ${selHighLowYear('2026')}>2026</option>
+                        </select>
                         <select id="stat-highlow-person" onchange="updateStats()">
                             <option value="ALL" ${selPerson('ALL')}>All Members</option>
                             ${userOptions.replace(/value="([^"]+)"/g, (match, p1) => match + (p1 === personFilter ? ' selected' : ''))}
@@ -795,15 +863,25 @@ window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL',
             <!-- Dictator Performance -->
             <div class="user-card" style="grid-column: 1 / -1; margin-top: 2rem;">
                 <h2 style="text-align:center; margin-bottom: 1rem;">Dictator Performance</h2>
-                <div style="text-align: center; margin-bottom: 2rem;">
-                     <label style="font-size:0.8rem; color:var(--text-secondary);">Media Type</label>
-                     <select id="stat-dictator-media" onchange="updateStats()">
-                         <option value="ALL" ${selDictatorMedia('ALL')}>All Media</option>
-                         <option value="game" ${selDictatorMedia('game')}>Games</option>
-                         <option value="movie" ${selDictatorMedia('movie')}>Movies</option>
-                         <option value="book" ${selDictatorMedia('book')}>Books</option>
-                     </select>
-                </div>
+                 <div style="text-align: center; margin-bottom: 2rem; display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+                     <div>
+                         <label style="font-size:0.8rem; color:var(--text-secondary); display:block;">Year</label>
+                         <select id="stat-dictator-year" onchange="updateStats()">
+                             <option value="ALL" ${selDictatorYear('ALL')}>All Years</option>
+                             <option value="2025" ${selDictatorYear('2025')}>2025</option>
+                             <option value="2026" ${selDictatorYear('2026')}>2026</option>
+                         </select>
+                     </div>
+                     <div>
+                         <label style="font-size:0.8rem; color:var(--text-secondary); display:block;">Media Type</label>
+                         <select id="stat-dictator-media" onchange="updateStats()">
+                             <option value="ALL" ${selDictatorMedia('ALL')}>All Media</option>
+                             <option value="game" ${selDictatorMedia('game')}>Games</option>
+                             <option value="movie" ${selDictatorMedia('movie')}>Movies</option>
+                             <option value="book" ${selDictatorMedia('book')}>Books</option>
+                         </select>
+                     </div>
+                 </div>
                 <div style="display: flex; justify-content: center; gap: 4rem; flex-wrap: wrap;">
                     
                     <!-- Benevolent Dictator -->
@@ -847,12 +925,7 @@ window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL',
             const labels = chronologicalMonths.map(m => m.name);
 
             // Chart Colors matching the users
-            const chartColors = {
-                "Andrew": "#FF6B6B",
-                "Tom": "#4ECDC4",
-                "Ross": "#FFE66D",
-                "Sean": "#845EC2"
-            };
+            const chartColors = USER_COLORS;
 
             const datasets = USERS.map(user => {
                 const dataPoints = chronologicalMonths.map(month => {
@@ -909,7 +982,28 @@ window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL',
                             grid: { color: 'rgba(255,255,255,0.05)' }
                         }
                     }
-                }
+                },
+                plugins: [{
+                    id: 'dictatorLines',
+                    beforeDraw(chart, args, options) {
+                        const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;
+                        chart.data.labels.forEach((label, index) => {
+                            const monthInfo = chronologicalMonths[index];
+                            if (monthInfo && monthInfo.mode === 'dictator' && monthInfo.dictator) {
+                                const xPos = x.getPixelForTick(index);
+                                ctx.save();
+                                ctx.beginPath();
+                                ctx.strokeStyle = USER_COLORS[monthInfo.dictator] || '#ffffff';
+                                ctx.lineWidth = 2;
+                                ctx.setLineDash([5, 5]);
+                                ctx.moveTo(xPos, top);
+                                ctx.lineTo(xPos, bottom);
+                                ctx.stroke();
+                                ctx.restore();
+                            }
+                        });
+                    }
+                }]
             });
 
             // Render Histogram
@@ -917,6 +1011,7 @@ window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL',
             if (histCtx) {
                 const histPersonF = document.getElementById('stat-hist-person');
                 const histMediaF = document.getElementById('stat-hist-media');
+                const histYearF = document.getElementById('stat-hist-year');
 
                 if (histPersonF && window.histogramPersonFilter) {
                     histPersonF.value = window.histogramPersonFilter;
@@ -924,16 +1019,22 @@ window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL',
                 if (histMediaF && window.histogramMediaFilter) {
                     histMediaF.value = window.histogramMediaFilter;
                 }
+                if (histYearF && window.histogramYearFilter) {
+                    histYearF.value = window.histogramYearFilter;
+                }
 
                 const histPerson = histPersonF ? histPersonF.value : 'ALL';
                 const histMedia = histMediaF ? histMediaF.value : 'ALL';
+                const histYear = histYearF ? histYearF.value : 'ALL';
 
                 window.histogramPersonFilter = histPerson;
                 window.histogramMediaFilter = histMedia;
+                window.histogramYearFilter = histYear;
 
                 let histRatings = ratings;
                 if (histPerson !== 'ALL') histRatings = histRatings.filter(r => r.user === histPerson);
                 if (histMedia !== 'ALL') histRatings = histRatings.filter(r => r.type === histMedia);
+                if (histYear !== 'ALL') histRatings = histRatings.filter(r => r.year === histYear);
 
                 const scoreCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0 };
 
@@ -994,13 +1095,21 @@ window.updateStats = function () {
     const avgMediaF = document.getElementById('stat-avg-media').value;
     const dictatorMediaF = document.getElementById('stat-dictator-media').value;
 
-    // Grab histogram values if they exist in the DOM
     const histPersonElem = document.getElementById('stat-hist-person');
     const histMediaElem = document.getElementById('stat-hist-media');
     const histPersonF = histPersonElem ? histPersonElem.value : null;
     const histMediaF = histMediaElem ? histMediaElem.value : null;
 
-    renderStats(personF, highLowMediaF, avgPersonF, avgMediaF, dictatorMediaF, histPersonF, histMediaF);
+    const highLowYearElem = document.getElementById('stat-highlow-year');
+    const highLowYearF = highLowYearElem ? highLowYearElem.value : 'ALL';
+
+    const histYearElem = document.getElementById('stat-hist-year');
+    const histYearF = histYearElem ? histYearElem.value : 'ALL';
+
+    const dictatorYearElem = document.getElementById('stat-dictator-year');
+    const dictatorYearF = dictatorYearElem ? dictatorYearElem.value : 'ALL';
+
+    renderStats(personF, highLowMediaF, avgPersonF, avgMediaF, dictatorMediaF, histPersonF, histMediaF, highLowYearF, histYearF, dictatorYearF);
 };
 
 // --- Authentication ---
@@ -1075,3 +1184,71 @@ window.addEventListener('scroll', () => {
     }
     lastScrollY = window.scrollY;
 });
+
+// --- Image Auto-Fetch ---
+window.autoFetchImage = async function (user, type, isDictatorMode) {
+    let title = '';
+    if (isDictatorMode) {
+        const month = state.months.find(m => m.id === state.currentMonthId);
+        title = month.globalPicks[type];
+    } else {
+        const titleEl = document.getElementById(`edit-${user}-${type}-title`);
+        title = titleEl ? titleEl.value.trim() : '';
+    }
+
+    const imageEl = document.getElementById(`edit-${user}-${type}-image`);
+
+    if (!title) {
+        alert("Please enter a title first to search for an image.");
+        return;
+    }
+
+    const originalPlaceholder = imageEl.placeholder;
+    imageEl.placeholder = "Searching for image...";
+    imageEl.value = ""; // Clear current so they see the placeholder
+
+    try {
+        let imageUrl = '';
+        if (type === 'book') {
+            const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(title)}&limit=1`);
+            const data = await res.json();
+            if (data.docs && data.docs.length > 0 && data.docs[0].cover_i) {
+                imageUrl = `https://covers.openlibrary.org/b/id/${data.docs[0].cover_i}-L.jpg`;
+            }
+        } else if (type === 'movie') {
+            const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&entity=movie&limit=1`);
+            const data = await res.json();
+            if (data.results && data.results.length > 0) {
+                // Replace low res with high res URL
+                imageUrl = data.results[0].artworkUrl100.replace('100x100bb', '600x600bb');
+            }
+        } else if (type === 'game') {
+            // First try iTunes software (captures many popular titles)
+            const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&entity=software&limit=1`);
+            const data = await res.json();
+            if (data.results && data.results.length > 0) {
+                imageUrl = data.results[0].artworkUrl512 || data.results[0].artworkUrl100;
+            } else {
+                // Fallback to Wikipedia API for video games
+                const wikiRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&prop=pageimages&titles=${encodeURIComponent(title)} (video game)&format=json&pithumbsize=500&origin=*`);
+                const wikiData = await wikiRes.json();
+                const pages = wikiData.query.pages;
+                const pageId = Object.keys(pages)[0];
+                if (pageId !== "-1" && pages[pageId].thumbnail) {
+                    imageUrl = pages[pageId].thumbnail.source;
+                }
+            }
+        }
+
+        if (imageUrl) {
+            imageEl.value = imageUrl;
+        } else {
+            alert(`Couldn't find an automatic image for "${title}". You may need to paste a URL manually.`);
+        }
+    } catch (e) {
+        console.error("Error auto-fetching image:", e);
+        alert("There was an error trying to fetch the image. Please try manually.");
+    } finally {
+        imageEl.placeholder = originalPlaceholder;
+    }
+};
