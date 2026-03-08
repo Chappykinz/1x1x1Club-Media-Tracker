@@ -64,6 +64,7 @@ window.exportData = function () {
 const nav = document.getElementById('month-nav');
 const addMonthBtn = document.getElementById('add-month-btn');
 const deleteMonthBtn = document.getElementById('delete-month-btn');
+const exportDataBtn = document.getElementById('export-data-btn');
 const newMonthModal = document.getElementById('new-month-modal');
 const newMonthForm = document.getElementById('new-month-form');
 const cancelNewMonthBtn = document.getElementById('cancel-new-month');
@@ -167,6 +168,12 @@ newMonthForm.addEventListener('submit', (e) => {
 function render() {
     renderNav();
     renderContent();
+
+    if (currentUser === 'Andrew') {
+        exportDataBtn.classList.remove('hidden');
+    } else {
+        exportDataBtn.classList.add('hidden');
+    }
 
     if (currentUser === 'Andrew' && state.viewMode === 'month' && state.months.length > 0) {
         deleteMonthBtn.classList.remove('hidden');
@@ -1041,7 +1048,7 @@ window.attemptLogin = function () {
     loginOverlay.style.display = 'none';
     appContainer.style.display = 'block';
     headerUsernameLabel.textContent = `User: ${currentUser}`;
-    renderContent();
+    render();
 };
 
 logoutBtn.addEventListener('click', () => {
