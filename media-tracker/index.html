@@ -16,7 +16,7 @@
         <header class="glass-header">
             <div style="display:flex; flex-direction:column; gap:0.2rem;">
                 <div class="logo">
-                    <span class="gradient-text">Media</span>Tracker
+                    <span class="gradient-text">1x1x1</span> Club
                 </div>
                 <div
                     style="font-size: 0.8rem; color: var(--text-secondary); display: flex; align-items: center; gap: 0.5rem;">
@@ -28,7 +28,29 @@
             <nav id="month-nav">
                 <!-- Navigation inserted by JS -->
             </nav>
-            <div class="header-actions" style="display: flex; gap: 1rem;">
+            <div class="header-actions" style="display: flex; gap: 1rem; align-items: center;">
+                <div class="tooltip-container">
+                    <button class="btn-secondary"
+                        style="background:var(--card-bg); border: 1px solid var(--accent); color: var(--accent);">Scoring
+                        Rubric ℹ️</button>
+                    <div class="tooltip-content glass-panel"
+                        style="right: 0; min-width: 300px; padding: 1.5rem; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; z-index: 1000;">
+                        <h3 style="margin-top:0; color:var(--text-color);">Rating Scale</h3>
+                        <ul
+                            style="list-style:none; padding:0; margin:0; font-size:0.9rem; line-height: 1.6; color:var(--text-secondary); text-align: left;">
+                            <li><strong style="color:#4caf50;">10</strong> - Masterpiece. Must consume.</li>
+                            <li><strong style="color:#8bc34a;">9</strong> - Incredible. Highly recommended.</li>
+                            <li><strong style="color:#cddc39;">8</strong> - Great. Very enjoyable.</li>
+                            <li><strong style="color:#ffeb3b;">7</strong> - Good. Solid experience.</li>
+                            <li><strong style="color:#ffc107;">6</strong> - Okay. Above average but flawed.</li>
+                            <li><strong style="color:#ff9800;">5</strong> - Mediocre. Exactly average.</li>
+                            <li><strong style="color:#ff5722;">4</strong> - Subpar. Mostly didn't enjoy it.</li>
+                            <li><strong style="color:#f44336;">3</strong> - Bad. Hard to finish.</li>
+                            <li><strong style="color:#e91e63;">2</strong> - Terrible. Complete waste of time.</li>
+                            <li><strong style="color:#9c27b0;">1</strong> - Abysmal. Actively harmful.</li>
+                        </ul>
+                    </div>
+                </div>
                 <button id="stats-btn" class="btn-secondary">Stats</button>
                 <button id="add-month-btn" class="btn-primary">+ New Month</button>
             </div>
@@ -42,17 +64,16 @@
     <!-- Modals -->
     <div id="login-overlay" class="modal fade-in" style="display: flex;">
         <div class="modal-content glass-panel" style="max-width: 400px; text-align: center;">
-            <h2>Welcome to Media Tracker Club</h2>
+            <h2>Welcome to 1x1x1 Club</h2>
             <p style="color: var(--text-secondary); margin-bottom: 2rem;">Please log in to continue</p>
             <div style="margin-bottom: 1.5rem;">
-                <input type="password" id="login-password" placeholder="Enter Password"
+                <input type="text" id="login-username" placeholder="Enter Name (e.g. Andrew)"
                     style="width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: white; margin-bottom: 1rem; box-sizing: border-box;" />
+                <input type="password" id="login-password" placeholder="Enter Password"
+                    style="width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: white; box-sizing: border-box;" />
             </div>
             <div style="display: flex; flex-direction: column; gap: 1rem;">
-                <button class="btn-primary" onclick="loginAs('Andrew')">Log in as Andrew</button>
-                <button class="btn-primary" onclick="loginAs('Tom')">Log in as Tom</button>
-                <button class="btn-primary" onclick="loginAs('Ross')">Log in as Ross</button>
-                <button class="btn-primary" onclick="loginAs('Sean')">Log in as Sean</button>
+                <button class="btn-primary" onclick="attemptLogin()">Log In</button>
             </div>
         </div>
     </div>
@@ -119,7 +140,8 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="app.js?v=3"></script>
 </body>
 
 </html>

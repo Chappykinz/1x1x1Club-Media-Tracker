@@ -290,12 +290,20 @@ function renderContent() {
 
     html += `<div class="user-grid">`;
 
+    const userColors = {
+        "Andrew": "linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%)",
+        "Tom": "linear-gradient(135deg, #4ECDC4 0%, #556270 100%)",
+        "Ross": "linear-gradient(135deg, #FFE66D 0%, #FFB238 100%)",
+        "Sean": "linear-gradient(135deg, #845EC2 0%, #D65DB1 100%)"
+    };
+
     USERS.forEach(user => {
+        const userBg = userColors[user] || "var(--primary-gradient)";
         html += `
             <div class="user-card" id="user-card-${user}">
                 <div class="user-card-header">
-                    <div class="avatar">${user[0]}</div>
-                    <div class="user-name">${user}</div>
+                    <div class="avatar" style="background: ${userBg};">${user[0]}</div>
+                    <div class="user-name" style="color: ${userBg.includes('#4ECDC4') ? '#4ECDC4' : userBg.includes('#FFE66D') ? '#FFE66D' : userBg.includes('#FF6B6B') ? '#FF6B6B' : '#845EC2'};">${user}</div>
                     ${currentUser === user ? `<button class="btn-secondary" style="margin-left:auto; padding: 0.3rem 0.6rem; font-size: 0.8rem;" onclick="startEdit('${user}')">Edit</button>` : '<div style="margin-left:auto;"></div>'}
                 </div>
                 <div class="media-section" id="view-mode-${user}">
@@ -423,9 +431,17 @@ window.editGlobalPicks = function (monthId) {
     if (!month) return;
 
     const modal = document.getElementById('global-picks-modal');
+    const userOptions = USERS.map(u => `<option value="${u}" ${u === month.dictator ? 'selected' : ''}>${u}</option>`).join('');
+
     modal.innerHTML = `
         <div class="modal-content glass-panel">
             <h2>Set Dictator Picks</h2>
+            <div class="form-group">
+                <label>Dictator</label>
+                <select id="global-dictator">
+                    ${userOptions}
+                </select>
+            </div>
             <div class="form-group">
                 <label>Video Game</label>
                 <input type="text" id="global-game" value="${month.globalPicks.game || ''}" />
@@ -451,6 +467,7 @@ window.saveGlobalPicks = function (monthId) {
     const month = state.months.find(m => m.id === monthId);
     if (!month) return;
 
+    month.dictator = document.getElementById('global-dictator').value;
     month.globalPicks.game = document.getElementById('global-game').value;
     month.globalPicks.movie = document.getElementById('global-movie').value;
     month.globalPicks.book = document.getElementById('global-book').value;
@@ -488,7 +505,7 @@ function getAllRatings() {
     return ratings;
 }
 
-window.renderStats = function (personFilter = 'ALL', avgPersonFilter = 'ALL', avgMediaFilter = 'ALL') {
+window.renderStats = function (personFilter = 'ALL', avgPersonFilter = 'ALL', avgMediaFilter = 'ALL', dictatorMediaFilter = 'ALL') {
     const ratings = getAllRatings();
 
     // Filters for High/Low
@@ -528,6 +545,7 @@ window.renderStats = function (personFilter = 'ALL', avgPersonFilter = 'ALL', av
             let ratingCount = 0;
             USERS.forEach(user => {
                 MEDIA_TYPES.forEach(type => {
+                    if (dictatorMediaFilter !== 'ALL' && type !== dictatorMediaFilter) return;
                     const entry = month.entries[user][type];
                     if (entry && entry.rating) {
                         monthTotal += parseFloat(entry.rating);
@@ -568,31 +586,13 @@ window.renderStats = function (personFilter = 'ALL', avgPersonFilter = 'ALL', av
     const selPerson = p => p === personFilter ? 'selected' : '';
     const selAvgPerson = p => p === avgPersonFilter ? 'selected' : '';
     const selAvgMedia = m => m === avgMediaFilter ? 'selected' : '';
+    const selDictatorMedia = m => m === dictatorMediaFilter ? 'selected' : '';
 
     const html = `
         <div class="month-header">
             <div class="month-title">
                 <h1>Club Statistics</h1>
                 <div class="month-meta">Overview of all ratings over time</div>
-            </div>
-            
-            <div class="dropdown">
-                <button class="btn-secondary" style="background:var(--card-bg); border: 1px solid var(--accent); color: var(--accent);">Scoring Rubric ℹ️</button>
-                <div class="dropdown-content glass-panel" style="right: 0; min-width: 300px; padding: 1.5rem; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; z-index: 1000;">
-                    <h3 style="margin-top:0; color:var(--text-color);">Rating Scale</h3>
-                    <ul style="list-style:none; padding:0; margin:0; font-size:0.9rem; line-height: 1.6; color:var(--text-secondary);">
-                        <li><strong style="color:#4caf50;">10</strong> - Masterpiece. Must consume.</li>
-                        <li><strong style="color:#8bc34a;">9</strong> - Incredible. Highly recommended.</li>
-                        <li><strong style="color:#cddc39;">8</strong> - Great. Very enjoyable.</li>
-                        <li><strong style="color:#ffeb3b;">7</strong> - Good. Solid experience.</li>
-                        <li><strong style="color:#ffc107;">6</strong> - Okay. Above average but flawed.</li>
-                        <li><strong style="color:#ff9800;">5</strong> - Mediocre. Exactly average.</li>
-                        <li><strong style="color:#ff5722;">4</strong> - Subpar. Mostly didn't enjoy it.</li>
-                        <li><strong style="color:#f44336;">3</strong> - Bad. Hard to finish.</li>
-                        <li><strong style="color:#e91e63;">2</strong> - Terrible. Complete waste of time.</li>
-                        <li><strong style="color:#9c27b0;">1</strong> - Abysmal. Actively harmful.</li>
-                    </ul>
-                </div>
             </div>
         </div>
 
@@ -672,10 +672,27 @@ window.renderStats = function (personFilter = 'ALL', avgPersonFilter = 'ALL', av
                     Based on ${avgRatings.length} ratings
                 </div>
             </div>
+
+            <!-- Chart.js Line Chart -->
+            <div class="user-card" style="grid-column: 1 / -1; margin-top: 2rem;">
+                <h3 style="text-align:center; margin-bottom: 1rem;">Average Rating Trends Over Time</h3>
+                <div style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="ratingChart"></canvas>
+                </div>
+            </div>
             
             <!-- Dictator Performance -->
             <div class="user-card" style="grid-column: 1 / -1; margin-top: 2rem;">
-                <h2 style="text-align:center; margin-bottom: 2rem;">Dictator Performance</h2>
+                <h2 style="text-align:center; margin-bottom: 1rem;">Dictator Performance</h2>
+                <div style="text-align: center; margin-bottom: 2rem;">
+                     <label style="font-size:0.8rem; color:var(--text-secondary);">Media Type</label>
+                     <select id="stat-dictator-media" onchange="updateStats()">
+                         <option value="ALL" ${selDictatorMedia('ALL')}>All Media</option>
+                         <option value="game" ${selDictatorMedia('game')}>Games</option>
+                         <option value="movie" ${selDictatorMedia('movie')}>Movies</option>
+                         <option value="book" ${selDictatorMedia('book')}>Books</option>
+                     </select>
+                </div>
                 <div style="display: flex; justify-content: center; gap: 4rem; flex-wrap: wrap;">
                     
                     <!-- Benevolent Dictator -->
@@ -707,18 +724,91 @@ window.renderStats = function (personFilter = 'ALL', avgPersonFilter = 'ALL', av
     `;
 
     mainContent.innerHTML = html;
+
+    // Initialize Chart.js
+    setTimeout(() => {
+        const ctx = document.getElementById('ratingChart');
+        if (ctx && window.Chart) {
+            // Sort state.months by sortKey chronologically
+            const chronologicalMonths = [...state.months].sort((a, b) => (a.sortKey || 0) - (b.sortKey || 0));
+            const labels = chronologicalMonths.map(m => m.name);
+
+            // Chart Colors matching the users
+            const chartColors = {
+                "Andrew": "#FF6B6B",
+                "Tom": "#4ECDC4",
+                "Ross": "#FFE66D",
+                "Sean": "#845EC2"
+            };
+
+            const datasets = USERS.map(user => {
+                const dataPoints = chronologicalMonths.map(month => {
+                    let totalRating = 0;
+                    let count = 0;
+
+                    MEDIA_TYPES.forEach(type => {
+                        const entry = month.entries[user]?.[type];
+                        if (entry && entry.rating) {
+                            totalRating += parseFloat(entry.rating);
+                            count++;
+                        }
+                    });
+
+                    return count > 0 ? (totalRating / count).toFixed(1) : null;
+                });
+
+                return {
+                    label: user,
+                    data: dataPoints,
+                    borderColor: chartColors[user] || '#ffffff',
+                    backgroundColor: chartColors[user] || '#ffffff',
+                    tension: 0.3,
+                    spanGaps: true
+                };
+            });
+
+            // Destroy previous chart instance if it exists to prevent overlap
+            if (window.myRatingChart) {
+                window.myRatingChart.destroy();
+            }
+
+            window.myRatingChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#e6edf3' } }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 10,
+                            ticks: { color: '#8b949e' },
+                            grid: { color: 'rgba(255,255,255,0.05)' }
+                        },
+                        x: {
+                            ticks: { color: '#8b949e' },
+                            grid: { color: 'rgba(255,255,255,0.05)' }
+                        }
+                    }
+                }
+            });
+        }
+    }, 100);
 };
 
 window.updateStats = function () {
     const personF = document.getElementById('stat-highlow-person').value;
     const avgPersonF = document.getElementById('stat-avg-person').value;
     const avgMediaF = document.getElementById('stat-avg-media').value;
-    renderStats(personF, avgPersonF, avgMediaF);
+    const dictatorMediaF = document.getElementById('stat-dictator-media').value;
+    renderStats(personF, avgPersonF, avgMediaF, dictatorMediaF);
 };
-
-// Initial load
-loadData();
-render();
 
 // --- Authentication ---
 const loginOverlay = document.getElementById('login-overlay');
@@ -728,19 +818,37 @@ const logoutBtn = document.getElementById('logout-btn');
 
 let currentUser = localStorage.getItem('mediaTrackerUser');
 
-window.loginAs = function (user) {
-    const pwdInput = document.getElementById('login-password');
-    if (pwdInput && pwdInput.value !== 'LPP') {
+window.attemptLogin = function () {
+    const userInp = document.getElementById('login-username').value.trim();
+    const pwdInp = document.getElementById('login-password').value;
+
+    if (!userInp) {
+        alert('Please enter your name.');
+        return;
+    }
+
+    const formattedUser = userInp.charAt(0).toUpperCase() + userInp.slice(1).toLowerCase();
+
+    if (!USERS.includes(formattedUser)) {
+        alert('Invalid user. ');
+        return;
+    }
+
+    if (pwdInp !== 'LPP') {
         alert('Incorrect password!');
         return;
     }
-    currentUser = user;
-    if (pwdInput) pwdInput.value = ''; // clear out the field
-    localStorage.setItem('mediaTrackerUser', user);
+
+    currentUser = formattedUser;
+
+    document.getElementById('login-username').value = '';
+    document.getElementById('login-password').value = '';
+
+    localStorage.setItem('mediaTrackerUser', currentUser);
     loginOverlay.style.display = 'none';
     appContainer.style.display = 'block';
-    headerUsernameLabel.textContent = `User: ${user}`;
-    renderContent(); // re-render to reflect the user if viewing a month
+    headerUsernameLabel.textContent = `User: ${currentUser}`;
+    renderContent();
 };
 
 logoutBtn.addEventListener('click', () => {
@@ -755,4 +863,8 @@ if (currentUser) {
     appContainer.style.display = 'block';
     headerUsernameLabel.textContent = `User: ${currentUser}`;
 }
+
+// Initial load
+loadData();
+render();
 
