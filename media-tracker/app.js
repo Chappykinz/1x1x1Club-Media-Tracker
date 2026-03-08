@@ -147,6 +147,11 @@ function renderNav() {
             activeMonthContainer.appendChild(leftBtn);
         }
 
+        const centerCol = document.createElement('div');
+        centerCol.style.display = 'flex';
+        centerCol.style.flexDirection = 'column';
+        centerCol.style.alignItems = 'center';
+
         const currA = document.createElement('a');
         currA.className = `nav-link active`;
         currA.textContent = currentMonth.name;
@@ -154,7 +159,29 @@ function renderNav() {
             state.viewMode = 'month';
             render();
         };
-        activeMonthContainer.appendChild(currA);
+        centerCol.appendChild(currA);
+
+        const returnBtn = document.createElement('a');
+        returnBtn.textContent = 'Return to Current Month';
+        returnBtn.style.cssText = 'font-size: 0.8rem; color: var(--accent); cursor: pointer; text-decoration: underline; margin-top: 0.2rem;';
+        returnBtn.onclick = () => {
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentM = now.getMonth() + 1;
+            const currentSortKey = currentYear * 100 + currentM;
+            const target = state.months.find(m => m.sortKey === currentSortKey);
+            if (target) {
+                state.currentMonthId = target.id;
+                state.viewMode = 'month';
+                saveData();
+                render();
+            } else {
+                alert("This chronological month hasn't been created yet!");
+            }
+        };
+        centerCol.appendChild(returnBtn);
+
+        activeMonthContainer.appendChild(centerCol);
 
         if (nextMonth) {
             const rightBtn = document.createElement('button');
@@ -292,6 +319,15 @@ function renderContent() {
         <div id="global-picks-modal" class="modal hidden">
             <!-- Modal content injected via JS when editing -->
         </div>
+        <div id="review-modal" class="modal hidden" style="z-index: 2000;">
+            <div class="modal-content glass-panel" style="max-width: 500px; padding: 2rem;">
+                <h3 style="margin-top:0;">Thoughts & Review</h3>
+                <div id="review-modal-text" style="white-space: pre-wrap; margin: 1rem 0; line-height: 1.5; color: var(--text-color);"></div>
+                <div style="text-align: right; margin-top: 1.5rem;">
+                    <button class="btn-primary" onclick="document.getElementById('review-modal').classList.add('hidden')">Close</button>
+                </div>
+            </div>
+        </div>
     `;
 
     mainContent.innerHTML = html;
@@ -334,7 +370,7 @@ function renderMediaItemsForUser(month, user, isEdit) {
                                 <div class="media-title">${titleDisplay}</div>
                                 ${entry.rating ? `<div class="media-rating">${entry.rating}/10</div>` : ''}
                             </div>
-                            ${entry.thoughts ? `<div class="media-thoughts">"${entry.thoughts}"</div>` : ''}
+                            ${entry.thoughts ? `<div style="margin-top:0.5rem;"><a class="read-review-link" style="color:var(--accent); cursor:pointer; font-size: 0.9rem; text-decoration:underline;" onclick="showReviewModal(this)" data-thoughts="${entry.thoughts.replace(/"/g, '&quot;')}">Read Review</a></div>` : ''}
                         </div>
                         ${entry.imageUrl ? `<img src="${entry.imageUrl}" alt="Cover" class="media-thumbnail" />` : ''}
                     </div>
@@ -347,6 +383,12 @@ function renderMediaItemsForUser(month, user, isEdit) {
 }
 
 // --- Interaction Logic ---
+window.showReviewModal = function (element) {
+    const text = element.getAttribute('data-thoughts');
+    const modal = document.getElementById('review-modal');
+    document.getElementById('review-modal-text').textContent = text;
+    modal.classList.remove('hidden');
+};
 window.startEdit = function (user) {
     document.getElementById(`view-mode-${user}`).classList.add('hidden');
     document.getElementById(`edit-mode-${user}`).classList.remove('hidden');
