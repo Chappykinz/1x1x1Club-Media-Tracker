@@ -469,8 +469,18 @@ function renderMediaItemsForUser(month, user, isEdit) {
         let extraFields = '';
         let extraDisplay = '';
         if (type === 'book') {
-            extraFields = `<input type="text" id="edit-${user}-book-author" value="${entry.author || ''}" placeholder="Author" style="margin-top: 0.5rem;" />`;
-            if (entry.author) extraDisplay = `<div style="font-size:0.85rem; color:var(--text-secondary); margin-top:0.2rem;">by ${entry.author}</div>`;
+            const authorGender = entry.authorGender || '';
+            const authorColor = authorGender === 'F' ? '#f472b6' : authorGender === 'M' ? '#60a5fa' : 'var(--text-secondary)';
+            extraFields = `
+                <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+                    <input type="text" id="edit-${user}-book-author" value="${entry.author || ''}" placeholder="Author" style="flex:1;" />
+                    <select id="edit-${user}-book-gender" style="flex:0 0 auto; min-width:110px;">
+                        <option value="" ${!authorGender ? 'selected' : ''}>Gender?</option>
+                        <option value="M" ${authorGender === 'M' ? 'selected' : ''}>Male</option>
+                        <option value="F" ${authorGender === 'F' ? 'selected' : ''}>Female</option>
+                    </select>
+                </div>`;
+            if (entry.author) extraDisplay = `<div style="font-size:0.85rem; color:${authorColor}; margin-top:0.2rem;">✍ ${entry.author}</div>`;
         } else if (type === 'game') {
             extraFields = `
                 <select id="edit-${user}-game-platform" style="margin-top: 0.5rem; width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: white;">
@@ -580,7 +590,9 @@ window.saveEdit = function (user) {
 
         if (type === 'book') {
             const authorEl = document.getElementById(`edit-${user}-book-author`);
+            const genderEl = document.getElementById(`edit-${user}-book-gender`);
             if (authorEl) month.entries[user][type].author = authorEl.value.trim();
+            if (genderEl) month.entries[user][type].authorGender = genderEl.value;
         } else if (type === 'game') {
             const platformEl = document.getElementById(`edit-${user}-game-platform`);
             if (platformEl) month.entries[user][type].platform = platformEl.value;
@@ -648,6 +660,92 @@ window.saveGlobalPicks = function () {
     render();
 };
 
+// Admin-only: one-click seed function to patch historical Firebase data with authorGender
+window.seedAuthorGenderData = function () {
+    if (!confirm('This will patch all existing book entries in Firebase with known author/gender data. Run it once only. Proceed?')) return;
+
+    // Complete mapping of book title → { author, gender }
+    const BOOK_GENDER_MAP = {
+        // Regular months (per-user entries) — title is the key
+        "Old Man's War": { author: "John Scalzi", gender: "M" },
+        "Leviathan Wakes": { author: "James S.A. Corey", gender: "M" },
+        "Nevernight": { author: "Jay Kristoff", gender: "M" },
+        "Educated": { author: "Tara Westover", gender: "F" },
+        "Pay Any Price": { author: "James Risen", gender: "M" },
+        "The Way of Kings": { author: "Brandon Sanderson", gender: "M" },
+        "The Shadow of the Gods": { author: "John Gwynne", gender: "M" },
+        "The Fellowship of the Ring": { author: "J.R.R. Tolkien", gender: "M" },
+        "The Two Towers": { author: "J.R.R. Tolkien", gender: "M" },
+        "The Return of the King": { author: "J.R.R. Tolkien", gender: "M" },
+        "Dungeon Crawler Carl": { author: "Matt Dinniman", gender: "M" },
+        "Sapiens": { author: "Yuval Noah Harari", gender: "M" },
+        "Five Total Strangers": { author: "Natalie D. Richards", gender: "F" },
+        "The Woman in the Window": { author: "A.J. Finn", gender: "M" },
+        "I, Claudius": { author: "Robert Graves", gender: "M" },
+        "American War": { author: "Omar El Akkad", gender: "M" },
+        "With the Old Breed": { author: "Eugene Sledge", gender: "M" },
+        "The Pillars of the Earth": { author: "Ken Follett", gender: "M" },
+        "All the Demons Are Here": { author: "Jake Tapper", gender: "M" },
+        "Razorblade Tears": { author: "S.A. Cosby", gender: "M" },
+        "In Other Lands": { author: "Sarah Rees Brennan", gender: "F" },
+        "The House in the Cerulean Sea": { author: "TJ Klune", gender: "M" },
+        "A Prayer for Owen Meany": { author: "John Irving", gender: "M" },
+        "Jurassic Park": { author: "Michael Crichton", gender: "M" },
+        "Snowblind": { author: "Christopher Golden", gender: "M" },
+        "The Blade Itself": { author: "Joe Abercrombie", gender: "M" },
+        "The Lies of Locke Lamora": { author: "Scott Lynch", gender: "M" },
+        // Dictator month global picks — title is the key
+        "The Left Hand of Darkness": { author: "Ursula K. Le Guin", gender: "F" },
+        "Left Hand of Darkness": { author: "Ursula K. Le Guin", gender: "F" },
+        "The Fifth Season": { author: "N.K. Jemisin", gender: "F" },
+        "City of Inmates": { author: "Kelly Lytle Hernández", gender: "F" },
+        "Frankenstein": { author: "Mary Shelley", gender: "F" },
+        "The Plot": { author: "Jean Hanff Korelitz", gender: "F" },
+        "The Guns of August": { author: "Barbara Tuchman", gender: "F" },
+        "Tomorrow, and Tomorrow, and Tomorrow": { author: "Gabrielle Zevin", gender: "F" },
+        // Alt spellings
+        "Tomorrow and Tomorrow and Tomorrow": { author: "Gabrielle Zevin", gender: "F" },
+        "Freefall": { author: "Chris Miller", gender: "M" },
+        "The Crusades": { author: "Thomas Asbridge", gender: "M" },
+        "The Fault in Our Stars": { author: "John Green", gender: "M" },
+        "Burr": { author: "Gore Vidal", gender: "M" },
+        "Five Strangers": { author: "Natalie D. Richards", gender: "F" },
+    };
+
+    let patchCount = 0;
+
+    state.months.forEach((month, mIdx) => {
+        // Handle dictator-month globalPicks
+        if (month.mode === 'dictator' && month.globalPicks && month.globalPicks.book) {
+            const book = month.globalPicks.book;
+            const match = BOOK_GENDER_MAP[book];
+            if (match && !month.globalPicks.bookAuthorGender) {
+                month.globalPicks.bookAuthor = match.author;
+                month.globalPicks.bookAuthorGender = match.gender;
+                patchCount++;
+            }
+        }
+
+        // Handle regular-month per-user entries
+        USERS.forEach(user => {
+            const entry = month.entries?.[user]?.book;
+            if (!entry) return;
+            const title = entry.title;
+            if (!title) return;
+            const match = BOOK_GENDER_MAP[title];
+            if (match && !entry.authorGender) {
+                entry.author = entry.author || match.author;
+                entry.authorGender = match.gender;
+                patchCount++;
+            }
+        });
+    });
+
+    saveData();
+    render();
+    alert(`Done! Patched ${patchCount} book entries with author gender data.`);
+};
+
 // --- Statistics Rendering ---
 function getAllRatings() {
     let ratings = [];
@@ -660,7 +758,19 @@ function getAllRatings() {
                     if (month.mode === 'dictator' && month.globalPicks && month.globalPicks[type]) {
                         title = month.globalPicks[type];
                     }
-                    if (title) { // Only include if it has a title and a rating
+                    if (title) {
+                        // Author info: for dictator months, look at globalPicks; for regular, look at entry
+                        let author = '';
+                        let authorGender = '';
+                        if (type === 'book') {
+                            if (month.mode === 'dictator' && month.globalPicks) {
+                                author = month.globalPicks.bookAuthor || entry.author || '';
+                                authorGender = month.globalPicks.bookAuthorGender || entry.authorGender || '';
+                            } else {
+                                author = entry.author || '';
+                                authorGender = entry.authorGender || '';
+                            }
+                        }
                         ratings.push({
                             monthId: month.id,
                             monthName: month.name,
@@ -668,7 +778,9 @@ function getAllRatings() {
                             user: user,
                             type: type,
                             title: title,
-                            rating: parseFloat(entry.rating)
+                            rating: parseFloat(entry.rating),
+                            author: author,
+                            authorGender: authorGender
                         });
                     }
                 }
@@ -678,7 +790,7 @@ function getAllRatings() {
     return ratings;
 }
 
-window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL', avgPersonFilter = 'ALL', avgMediaFilter = 'ALL', dictatorMediaFilter = 'ALL', histPersonFilter = null, histMediaFilter = null, highLowYearFilter = 'ALL', histYearFilter = 'ALL', dictatorYearFilter = 'ALL') {
+window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL', avgPersonFilter = 'ALL', avgMediaFilter = 'ALL', dictatorMediaFilter = 'ALL', histPersonFilter = null, histMediaFilter = null, highLowYearFilter = 'ALL', histYearFilter = 'ALL', dictatorYearFilter = 'ALL', genderPersonFilter = 'ALL') {
     const ratings = getAllRatings();
 
     if (histPersonFilter) window.histogramPersonFilter = histPersonFilter;
@@ -948,6 +1060,82 @@ window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL',
                 </div>
             </div>
 
+            <!-- Books by Author Gender -->
+            <div class="user-card" style="grid-column: 1 / -1; margin-top: 2rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin-bottom:1.2rem;">
+                    <h3 style="margin:0;">📚 Books by Author Gender</h3>
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <label style="font-size:0.8rem; color:var(--text-secondary);">Person</label>
+                        <select id="stat-gender-person" onchange="updateStats()">
+                            <option value="ALL" ${genderPersonFilter === 'ALL' ? 'selected' : ''}>All Members</option>
+                            ${USERS.map(u => `<option value="${u}" ${genderPersonFilter === u ? 'selected' : ''}>${u}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+                ${(() => {
+                    let bookRatings = ratings.filter(r => r.type === 'book');
+                    if (genderPersonFilter !== 'ALL') bookRatings = bookRatings.filter(r => r.user === genderPersonFilter);
+
+                    const femaleRatings = bookRatings.filter(r => r.authorGender === 'F');
+                    const maleRatings = bookRatings.filter(r => r.authorGender === 'M');
+                    const femaleCount = femaleRatings.length;
+                    const maleCount = maleRatings.length;
+                    const unknownCount = bookRatings.filter(r => !r.authorGender).length;
+                    const total = femaleCount + maleCount + unknownCount;
+
+                    if (total === 0) return '<p style="color:var(--text-secondary);">No book data available yet.</p>';
+
+                    const femalePct = Math.round((femaleCount / total) * 100);
+                    const malePct = Math.round((maleCount / total) * 100);
+                    const unknownPct = 100 - femalePct - malePct;
+
+                    const femaleAvg = femaleCount > 0 ? (femaleRatings.reduce((s, r) => s + r.rating, 0) / femaleCount).toFixed(1) : null;
+                    const maleAvg = maleCount > 0 ? (maleRatings.reduce((s, r) => s + r.rating, 0) / maleCount).toFixed(1) : null;
+
+                    let gradientStops = '';
+                    let cursor = 0;
+                    if (femaleCount > 0) { gradientStops += `#f472b6 ${cursor}% ${cursor + femalePct}%, `; cursor += femalePct; }
+                    if (maleCount > 0) { gradientStops += `#60a5fa ${cursor}% ${cursor + malePct}%, `; cursor += malePct; }
+                    if (unknownPct > 0) { gradientStops += `rgba(255,255,255,0.12) ${cursor}% 100%`; }
+                    else { gradientStops = gradientStops.slice(0, -2); }
+
+                    const femaleBooks = [...new Set(femaleRatings.map(r => r.title))];
+                    const maleBooks = [...new Set(maleRatings.map(r => r.title))];
+
+                    return `
+                        <div style="display:flex; gap:2.5rem; align-items:center; flex-wrap:wrap;">
+                            <div style="position:relative; width:160px; height:160px; flex:0 0 auto;">
+                                <div style="width:160px; height:160px; border-radius:50%; background:conic-gradient(${gradientStops}); box-shadow:0 0 24px rgba(0,0,0,0.4);"></div>
+                                <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:80px; height:80px; border-radius:50%; background:var(--card-bg,#0d1117); display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                                    <div style="font-size:1.4rem; font-weight:800;">${total}</div>
+                                    <div style="font-size:0.6rem; color:var(--text-secondary);">books</div>
+                                </div>
+                            </div>
+                            <div style="flex:1; min-width:220px; display:flex; flex-direction:column; gap:1rem;">
+                                <div>
+                                    <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.3rem;">
+                                        <div style="width:12px;height:12px;border-radius:3px;background:#f472b6;"></div>
+                                        <span style="font-weight:700; color:#f472b6;">Female Authors</span>
+                                        <span style="margin-left:auto; font-weight:700; font-size:1.1rem;">${femaleCount} <span style="font-size:0.8rem; color:var(--text-secondary); font-weight:400;">(${femalePct}%)</span></span>
+                                        ${femaleAvg ? `<span style="background:rgba(244,114,182,0.15); color:#f472b6; border-radius:6px; padding:0.1rem 0.5rem; font-size:0.85rem; font-weight:600;">avg ${femaleAvg}</span>` : ''}
+                                    </div>
+                                    ${femaleBooks.length > 0 ? `<div style="font-size:0.75rem; color:var(--text-secondary); padding-left:20px;">${femaleBooks.join(' · ')}</div>` : ''}
+                                </div>
+                                <div>
+                                    <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.3rem;">
+                                        <div style="width:12px;height:12px;border-radius:3px;background:#60a5fa;"></div>
+                                        <span style="font-weight:700; color:#60a5fa;">Male Authors</span>
+                                        <span style="margin-left:auto; font-weight:700; font-size:1.1rem;">${maleCount} <span style="font-size:0.8rem; color:var(--text-secondary); font-weight:400;">(${malePct}%)</span></span>
+                                        ${maleAvg ? `<span style="background:rgba(96,165,250,0.15); color:#60a5fa; border-radius:6px; padding:0.1rem 0.5rem; font-size:0.85rem; font-weight:600;">avg ${maleAvg}</span>` : ''}
+                                    </div>
+                                    ${maleBooks.length > 0 ? `<div style="font-size:0.75rem; color:var(--text-secondary); padding-left:20px;">${maleBooks.slice(0,10).join(' · ')}${maleBooks.length > 10 ? ` +${maleBooks.length-10} more` : ''}</div>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                })()}
+            </div>
+
         </div>
     `;
 
@@ -1146,7 +1334,10 @@ window.updateStats = function () {
     const dictatorYearElem = document.getElementById('stat-dictator-year');
     const dictatorYearF = dictatorYearElem ? dictatorYearElem.value : 'ALL';
 
-    renderStats(personF, highLowMediaF, avgPersonF, avgMediaF, dictatorMediaF, histPersonF, histMediaF, highLowYearF, histYearF, dictatorYearF);
+    const genderPersonElem = document.getElementById('stat-gender-person');
+    const genderPersonF = genderPersonElem ? genderPersonElem.value : 'ALL';
+
+    renderStats(personF, highLowMediaF, avgPersonF, avgMediaF, dictatorMediaF, histPersonF, histMediaF, highLowYearF, histYearF, dictatorYearF, genderPersonF);
 };
 
 // --- Authentication ---
