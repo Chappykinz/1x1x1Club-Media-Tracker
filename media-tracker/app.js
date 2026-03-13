@@ -472,14 +472,12 @@ function renderMediaItemsForUser(month, user, isEdit) {
             const authorGender = entry.authorGender || '';
             const authorColor = authorGender === 'F' ? '#f472b6' : authorGender === 'M' ? '#60a5fa' : 'var(--text-secondary)';
             extraFields = `
-                <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
-                    <input type="text" id="edit-${user}-book-author" value="${entry.author || ''}" placeholder="Author" style="flex:1;" />
-                    <select id="edit-${user}-book-gender" style="flex:0 0 auto; min-width:110px;">
-                        <option value="" ${!authorGender ? 'selected' : ''}>Gender?</option>
-                        <option value="M" ${authorGender === 'M' ? 'selected' : ''}>Male</option>
-                        <option value="F" ${authorGender === 'F' ? 'selected' : ''}>Female</option>
-                    </select>
-                </div>`;
+                <input type="text" id="edit-${user}-book-author" value="${entry.author || ''}" placeholder="Author name" style="margin-top: 0.5rem;" />
+                <select id="edit-${user}-book-gender" style="margin-top: 0.4rem;">
+                    <option value="" ${!authorGender ? 'selected' : ''}>Author Gender?</option>
+                    <option value="M" ${authorGender === 'M' ? 'selected' : ''}>Male</option>
+                    <option value="F" ${authorGender === 'F' ? 'selected' : ''}>Female</option>
+                </select>`;
             if (entry.author) extraDisplay = `<div style="font-size:0.85rem; color:${authorColor}; margin-top:0.2rem;">✍ ${entry.author}</div>`;
         } else if (type === 'game') {
             extraFields = `
