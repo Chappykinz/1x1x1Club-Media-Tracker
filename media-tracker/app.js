@@ -639,6 +639,12 @@ window.showGlobalPicksModal = function () {
             <div class="form-group">
                 <label>Book</label>
                 <input type="text" id="global-book-title" value="${month.globalPicks.book || ''}" placeholder="Book Title..." />
+                <input type="text" id="global-book-author" value="${month.globalPicks.bookAuthor || ''}" placeholder="Author name" style="margin-top: 0.5rem;" />
+                <select id="global-book-gender" style="margin-top: 0.4rem;">
+                    <option value="" ${!month.globalPicks.bookAuthorGender ? 'selected' : ''}>Author Gender?</option>
+                    <option value="M" ${month.globalPicks.bookAuthorGender === 'M' ? 'selected' : ''}>Male</option>
+                    <option value="F" ${month.globalPicks.bookAuthorGender === 'F' ? 'selected' : ''}>Female</option>
+                </select>
                 <div style="display: flex; margin-top: 0.5rem;">
                     <input type="text" id="global-book-image" value="${month.globalPicks.bookImage || ''}" placeholder="Cover Image URL (Optional)" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0;" />
                     <button type="button" class="btn-secondary" style="border-top-left-radius: 0; border-bottom-left-radius: 0; padding: 0 1rem; border-color: rgba(255,255,255,0.1); background: rgba(0,0,0,0.2);" onclick="autoFetchGlobalImage('book')" title="Auto-find Image based on Title">🔍 Fetch</button>
@@ -664,6 +670,10 @@ window.saveGlobalPicks = function () {
     month.globalPicks.movieImage = document.getElementById('global-movie-image').value;
     month.globalPicks.book = document.getElementById('global-book-title').value;
     month.globalPicks.bookImage = document.getElementById('global-book-image').value;
+    const bookAuthorEl = document.getElementById('global-book-author');
+    const bookGenderEl = document.getElementById('global-book-gender');
+    if (bookAuthorEl) month.globalPicks.bookAuthor = bookAuthorEl.value.trim();
+    if (bookGenderEl) month.globalPicks.bookAuthorGender = bookGenderEl.value;
 
     saveData();
     render();
