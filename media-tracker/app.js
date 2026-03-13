@@ -36,15 +36,26 @@ let state = {
     viewMode: 'month' // 'month' or 'stats'
 };
 
+function getDefaultMonthId(months) {
+    if (!months || months.length === 0) return null;
+    const now = new Date();
+    const currentSortKey = now.getFullYear() * 100 + (now.getMonth() + 1);
+    const match = months.find(m => m.sortKey === currentSortKey);
+    if (match) return match.id;
+    // Fallback: most recent month
+    const sorted = [...months].sort((a, b) => (b.sortKey || 0) - (a.sortKey || 0));
+    return sorted[0].id;
+}
+
 async function loadData() {
     db.ref('mediaTrackerState/months').on('value', async (snapshot) => {
         const monthsData = snapshot.val();
 
         if (monthsData) {
             state.months = monthsData;
-            // Set current month to the latest if null
+            // Set current month to the current calendar month (or most recent as fallback)
             if (!state.currentMonthId && state.months.length > 0) {
-                state.currentMonthId = state.months[state.months.length - 1].id;
+                state.currentMonthId = getDefaultMonthId(state.months);
             }
             render();
         } else {
@@ -67,7 +78,7 @@ async function loadData() {
                 }
             }
             if (!state.currentMonthId && state.months.length > 0) {
-                state.currentMonthId = state.months[state.months.length - 1].id;
+                state.currentMonthId = getDefaultMonthId(state.months);
             }
             render();
         }
