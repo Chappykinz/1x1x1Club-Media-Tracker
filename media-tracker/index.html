@@ -53,6 +53,9 @@
                     </div>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    <button id="badges-btn" class="btn-secondary" style="height: 100%;">🏅 Badges</button>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
                     <button id="stats-btn" class="btn-secondary" style="height: 100%;">Stats</button>
                 </div>
                 <div id="admin-menu-container" class="hidden" style="position: relative; display: inline-block;">
@@ -180,10 +183,15 @@
         </div>
     </div>
 
+    <!-- Badges Modal -->
+    <div id="badges-modal" class="modal hidden">
+        <div id="badges-modal-content"></div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="app.js?v=13"></script>
+    <script src="app.js?v=14"></script>
 </body>
 
 </html>

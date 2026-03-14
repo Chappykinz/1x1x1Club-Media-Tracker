@@ -1668,3 +1668,229 @@ window.autoFetchGlobalImage = async function (type) {
         imageEl.placeholder = originalPlaceholder;
     }
 };
+
+// ===== BADGE SYSTEM =====
+
+const BOOK_PAGE_COUNTS = {
+    'lock in': 336, 'locked in': 336, 'lock in (john scalzi)': 336,
+    'the mercy of gods': 304, 'empire of the damned': 416, 'the last honest man': 336,
+    'educated': 352,
+    'the way of kings': 1007, 'the way of kings (the stormlight archive)': 1007,
+    'fury of the gods': 320, 'left hand of darkness': 296, 'the left hand of darkness': 296,
+    'dungeon crawler carl': 464,
+    'nexus: a brief history of information networks from the stone age to ai': 448, 'nexus': 448,
+    'words of radiance': 1087,
+    'the kind worth killing': 352, 'claudius the god': 488,
+    'american war': 352, 'with the old blood': 326, 'with the old breed': 326,
+    'pillars of the earth': 992, 'the pillars of the earth': 992,
+    'original sin': 352,
+    'the fifth season': 468, 'the fifth season (n.k. jemisin)': 468,
+    'bad mexicans': 368, 'the sequel': 320, 'king of ashes': 288, 'frankenstein': 216,
+    'the house on the cerulean sea': 400, 'the house in the cerulean sea': 400,
+    'oathbringer': 1248, 'oathbringer (stormlight chronicles book 3)': 1248,
+    'the world according to garp': 609, 'jurassic park': 400,
+    'the proud tower': 528,
+    'tomorrow, tomorrow, and tomorrow': 480, 'tomorrow and tomorrow and tomorrow': 480,
+    'ararat': 304, 'the devils': 528,
+    'lies of locke lamora': 752, 'the lies of locke lamora': 752,
+    'chip wars': 464, 'the crusades': 784, 'anthropocene reviewed': 288, 'burr': 430,
+    'mistborn: the final empire': 672, 'mistborn': 672,
+};
+
+const MOVIE_RUNTIMES = {
+    'hit man': 115, 'sonic 3': 110, 'wicked': 160, 'dark city': 100,
+    'nosferatu': 132, 'captain america: brave new world': 119,
+    'ministry of ungentlemanly warfare': 120, 'parasite': 132, 'rashomon': 88,
+    'the brutalist': 215, 'sinners': 137, 'no other land': 94,
+    'how to train your dragon 2': 102, 'heretic': 110, 'friendship': 97,
+    'the wild robot': 102, 'mickey 17': 137, 'fantastic four': 130,
+    'phoenician scheme': 100, 'naked gun': 101, 'kpop demon hunters': 100,
+    'formula 1': 122, 'alien': 116, 'the lighthouse': 110, '28 years later': 115,
+    'one battle after another': 161, 'warfare': 95, 'weapons': 95,
+    'como agua para chocolate': 105, 'frankenstein': 135, 'the substance': 140,
+    'eddington': 148, 'ballerina': 100,
+};
+
+function badgeLookupPages(title) {
+    return title ? (BOOK_PAGE_COUNTS[title.toLowerCase().trim()] || null) : null;
+}
+
+function badgeLookupRuntime(title) {
+    return title ? (MOVIE_RUNTIMES[title.toLowerCase().trim()] || null) : null;
+}
+
+function badgeGetAllEntries() {
+    const entries = [];
+    state.months.forEach(month => {
+        USERS.forEach(user => {
+            MEDIA_TYPES.forEach(type => {
+                const entry = month.entries?.[user]?.[type];
+                if (!entry) return;
+                let title = (month.mode === 'dictator' && month.globalPicks) ? month.globalPicks[type] : entry.title;
+                if (!title || !entry.rating) return;
+                let author = '', authorGender = '';
+                if (type === 'book') {
+                    if (month.mode === 'dictator' && month.globalPicks) {
+                        author = month.globalPicks.bookAuthor || entry.author || '';
+                        authorGender = month.globalPicks.bookAuthorGender || entry.authorGender || '';
+                    } else {
+                        author = entry.author || '';
+                        authorGender = entry.authorGender || '';
+                    }
+                }
+                entries.push({ user, type, title, rating: parseFloat(entry.rating), monthName: month.name, author, authorGender });
+            });
+        });
+    });
+    return entries;
+}
+
+function computeBadges() {
+    const entries = badgeGetAllEntries();
+    const books  = entries.filter(e => e.type === 'book');
+    const movies = entries.filter(e => e.type === 'movie');
+    const games  = entries.filter(e => e.type === 'game');
+    const res = {};
+
+    // 1. Longest Book
+    { let b = null; books.forEach(e => { const p = badgeLookupPages(e.title); if (p && (!b || p > b.pages)) b = { user: e.user, title: e.title, pages: p, monthName: e.monthName }; }); res.longestBook = b; }
+    // 2. Shortest Book
+    { let b = null; books.forEach(e => { const p = badgeLookupPages(e.title); if (p && (!b || p < b.pages)) b = { user: e.user, title: e.title, pages: p, monthName: e.monthName }; }); res.shortestBook = b; }
+    // 3. Longest Movie
+    { let b = null; movies.forEach(e => { const m = badgeLookupRuntime(e.title); if (m && (!b || m > b.mins)) b = { user: e.user, title: e.title, mins: m, monthName: e.monthName }; }); res.longestMovie = b; }
+    // 4. Shortest Movie
+    { let b = null; movies.forEach(e => { const m = badgeLookupRuntime(e.title); if (m && (!b || m < b.mins)) b = { user: e.user, title: e.title, mins: m, monthName: e.monthName }; }); res.shortestMovie = b; }
+
+    // 5. Feminist
+    {
+        const byUser = {}; USERS.forEach(u => { byUser[u] = { female: 0, total: 0 }; });
+        books.forEach(e => { if (e.authorGender) { byUser[e.user].total++; if (e.authorGender === 'F') byUser[e.user].female++; } });
+        let b = null;
+        USERS.forEach(u => { const d = byUser[u]; if (d.total < 2) return; const pct = d.female / d.total; if (!b || pct > b.pct) b = { user: u, pct, female: d.female, total: d.total }; });
+        res.feminist = b;
+    }
+    // 6. Completionist
+    {
+        const byUser = {}; USERS.forEach(u => { byUser[u] = []; });
+        games.forEach(e => byUser[e.user].push(e.rating));
+        let b = null;
+        USERS.forEach(u => { if (byUser[u].length < 3) return; const avg = byUser[u].reduce((a,v) => a+v,0)/byUser[u].length; if (!b || avg > b.avg) b = { user: u, avg: avg.toFixed(2), count: byUser[u].length }; });
+        res.completionist = b;
+    }
+    // 7. Cinematheque
+    {
+        const byUser = {}; USERS.forEach(u => { byUser[u] = []; });
+        movies.forEach(e => byUser[e.user].push(e.rating));
+        let b = null;
+        USERS.forEach(u => { if (byUser[u].length < 3) return; const avg = byUser[u].reduce((a,v) => a+v,0)/byUser[u].length; if (!b || avg > b.avg) b = { user: u, avg: avg.toFixed(2), count: byUser[u].length }; });
+        res.cinematheque = b;
+    }
+    // 8. Literary Critic
+    {
+        const byUser = {}; USERS.forEach(u => { byUser[u] = []; });
+        books.forEach(e => byUser[e.user].push(e.rating));
+        let b = null;
+        USERS.forEach(u => { if (byUser[u].length < 3) return; const avg = byUser[u].reduce((a,v) => a+v,0)/byUser[u].length; if (!b || avg > b.avg) b = { user: u, avg: avg.toFixed(2), count: byUser[u].length }; });
+        res.literaryCritic = b;
+    }
+    // 9. Hater
+    {
+        const byUser = {}; USERS.forEach(u => { byUser[u] = 0; });
+        entries.forEach(e => { if (e.rating <= 4) byUser[e.user]++; });
+        let b = null;
+        USERS.forEach(u => { if (!b || byUser[u] > b.count) b = { user: u, count: byUser[u] }; });
+        if (b && b.count === 0) b = null;
+        res.hater = b;
+    }
+    // 10. Stan
+    {
+        const byUser = {}; USERS.forEach(u => { byUser[u] = 0; });
+        entries.forEach(e => { if (e.rating === 10) byUser[e.user]++; });
+        let b = null;
+        USERS.forEach(u => { if (!b || byUser[u] > b.count) b = { user: u, count: byUser[u] }; });
+        if (b && b.count === 0) b = null;
+        res.stan = b;
+    }
+    // 11. Dictator
+    {
+        const byUser = {}; USERS.forEach(u => { byUser[u] = 0; });
+        state.months.forEach(m => { if (m.mode === 'dictator' && m.dictator) byUser[m.dictator]++; });
+        let b = null;
+        USERS.forEach(u => { if (!b || byUser[u] > b.count) b = { user: u, count: byUser[u] }; });
+        if (b && b.count === 0) b = null;
+        res.dictator = b;
+    }
+    // 12. Most Controversial
+    {
+        const byTitle = {};
+        entries.forEach(e => { const k = `${e.type}::${e.title.toLowerCase()}`; if (!byTitle[k]) byTitle[k] = []; byTitle[k].push(e); });
+        const userDevs = {}; USERS.forEach(u => { userDevs[u] = { total: 0, count: 0 }; });
+        Object.values(byTitle).forEach(grp => {
+            if (grp.length < 2) return;
+            const avg = grp.reduce((a, e) => a + e.rating, 0) / grp.length;
+            grp.forEach(e => { userDevs[e.user].total += Math.abs(e.rating - avg); userDevs[e.user].count++; });
+        });
+        let b = null;
+        USERS.forEach(u => { if (userDevs[u].count < 3) return; const avgDev = userDevs[u].total / userDevs[u].count; if (!b || avgDev > b.avgDev) b = { user: u, avgDev: avgDev.toFixed(2), count: userDevs[u].count }; });
+        res.controversial = b;
+    }
+
+    return res;
+}
+
+const BADGE_DEFS = [
+    { id: 'longestBook',    icon: '📚', name: 'War & Peace',         desc: 'Read the longest book by page count. Moves when someone reads a longer one.',       getStat: r => r ? `"${r.title}" — ${r.pages.toLocaleString()} pages (${r.monthName})` : null },
+    { id: 'shortestBook',   icon: '🐦', name: 'Twitter Thread',      desc: 'Read the shortest book by page count. Moves when someone reads a shorter one.',      getStat: r => r ? `"${r.title}" — ${r.pages.toLocaleString()} pages (${r.monthName})` : null },
+    { id: 'longestMovie',   icon: '🎞️', name: 'Butt Numb-a-Thon',   desc: 'Watched the longest movie by runtime. Moves when someone watches a longer one.',     getStat: r => r ? `"${r.title}" — ${r.mins} min (${r.monthName})` : null },
+    { id: 'shortestMovie',  icon: '⚡', name: 'TikTok Brain',        desc: 'Watched the shortest movie by runtime. Moves when someone watches a shorter one.',    getStat: r => r ? `"${r.title}" — ${r.mins} min (${r.monthName})` : null },
+    { id: 'feminist',       icon: '✊', name: 'The Feminist',         desc: 'Highest % of books by female authors (min 2 rated books with gender data).',         getStat: r => r ? `${r.female} of ${r.total} books by female authors (${Math.round(r.pct * 100)}%)` : null },
+    { id: 'completionist',  icon: '🎮', name: 'The Completionist',   desc: 'Highest average game rating (min 3 games).',                                          getStat: r => r ? `Avg ${r.avg}/10 across ${r.count} games` : null },
+    { id: 'cinematheque',   icon: '🎬', name: 'Cinematheque',        desc: 'Highest average movie rating (min 3 movies).',                                        getStat: r => r ? `Avg ${r.avg}/10 across ${r.count} movies` : null },
+    { id: 'literaryCritic', icon: '📖', name: 'Literary Critic',     desc: 'Highest average book rating (min 3 books).',                                          getStat: r => r ? `Avg ${r.avg}/10 across ${r.count} books` : null },
+    { id: 'hater',          icon: '👎', name: 'The Hater',           desc: 'Most ratings given that were 4 or below. Real tough crowd.',                          getStat: r => r ? `${r.count} low ratings (1–4) given` : null },
+    { id: 'stan',           icon: '⭐', name: 'The Stan',            desc: 'Most perfect 10/10 ratings given.',                                                   getStat: r => r ? `${r.count} perfect 10/10 ratings given` : null },
+    { id: 'dictator',       icon: '👑', name: 'The Dictator',        desc: 'Has been the club dictator the most months.',                                         getStat: r => r ? `Dictator for ${r.count} month${r.count !== 1 ? 's' : ''}` : null },
+    { id: 'controversial',  icon: '🎲', name: 'Most Controversial',  desc: "Ratings deviate the most from the group average. Their taste is… polarizing.",        getStat: r => r ? `Avg ${r.avgDev} pts from group mean (${r.count} shared titles)` : null },
+];
+
+function renderBadges() {
+    const modal = document.getElementById('badges-modal');
+    const content = document.getElementById('badges-modal-content');
+    const results = computeBadges();
+
+    let html = '';
+    BADGE_DEFS.forEach(def => {
+        const r = results[def.id];
+        const holder = r ? r.user : null;
+        const stat = def.getStat(r);
+        const earned = !!holder;
+        html += `
+            <div class="badge-item ${earned ? 'earned' : 'locked'}">
+                <div class="badge-medal">${def.icon}</div>
+                <div class="badge-ribbon"></div>
+                <div class="badge-name">${def.name}</div>
+                ${earned ? `<div class="badge-holder">🏅 ${holder}</div>` : `<div class="badge-locked-label">Not yet awarded</div>`}
+                <div class="badge-tooltip">
+                    <div class="badge-tooltip-title">${def.icon} ${def.name}</div>
+                    <div class="badge-tooltip-desc">${def.desc}</div>
+                    ${stat ? `<div class="badge-tooltip-stat">${stat}</div>` : ''}
+                </div>
+            </div>`;
+    });
+
+    content.innerHTML = `
+        <div class="badge-modal-inner">
+            <div class="badge-modal-header">
+                <h2>🏅 Club Badges</h2>
+                <button class="badge-close-btn" id="badges-close-btn" title="Close">✕</button>
+            </div>
+            <div class="badge-grid">${html}</div>
+        </div>`;
+
+    modal.classList.remove('hidden');
+    document.getElementById('badges-close-btn').addEventListener('click', () => modal.classList.add('hidden'));
+    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.add('hidden'); }, { once: true });
+}
+
+document.getElementById('badges-btn').addEventListener('click', renderBadges);
+
