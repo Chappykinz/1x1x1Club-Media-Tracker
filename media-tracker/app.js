@@ -1785,82 +1785,104 @@ function computeBadges() {
     const competitive = [];
     const achievements = [];
 
-    // ── COMPETITIVE (exclusive, one holder) ──────────────────────────────────
+    // ── COMPETITIVE (one or more holders if tied) ────────────────────────────
 
     // 1. Longest Book
-    { let b = null; books.forEach(e => { const p = badgeLookupPages(e.title); if (p && (!b || p > b.pages)) b = { user: e.user, title: e.title, pages: p, monthName: e.monthName }; });
-      competitive.push({ id: 'longestBook', icon: '📚', name: 'War & Peace', desc: 'Read the longest book by page count. Moves when someone reads a longer one.', holder: b?.user || null, stat: b ? `"${b.title}" — ${b.pages.toLocaleString()} pages (${b.monthName})` : null }); }
+    {
+        let max = 0; books.forEach(e => { const p = badgeLookupPages(e.title); if (p > max) max = p; });
+        const winners = max > 0 ? books.filter(e => badgeLookupPages(e.title) === max) : [];
+        const uniqueWinners = [...new Set(winners.map(w => w.user))];
+        const sample = winners[0];
+        competitive.push({ id: 'longestBook', icon: '📚', name: 'War & Peace', desc: 'Read the longest book by page count. Shared if multiple people read the same book.', holders: uniqueWinners, stat: sample ? `"${sample.title}" — ${max.toLocaleString()} pages (${sample.monthName})` : null });
+    }
 
     // 2. Shortest Book
-    { let b = null; books.forEach(e => { const p = badgeLookupPages(e.title); if (p && (!b || p < b.pages)) b = { user: e.user, title: e.title, pages: p, monthName: e.monthName }; });
-      competitive.push({ id: 'shortestBook', icon: '🐦', name: 'Twitter Thread', desc: 'Read the shortest book by page count. Moves when someone reads a shorter one.', holder: b?.user || null, stat: b ? `"${b.title}" — ${b.pages.toLocaleString()} pages (${b.monthName})` : null }); }
+    {
+        let min = Infinity; books.forEach(e => { const p = badgeLookupPages(e.title); if (p && p < min) min = p; });
+        const winners = min !== Infinity ? books.filter(e => badgeLookupPages(e.title) === min) : [];
+        const uniqueWinners = [...new Set(winners.map(w => w.user))];
+        const sample = winners[0];
+        competitive.push({ id: 'shortestBook', icon: '🐦', name: 'Twitter Thread', desc: 'Read the shortest book by page count. Shared if multiple people read the same book.', holders: uniqueWinners, stat: sample ? `"${sample.title}" — ${min.toLocaleString()} pages (${sample.monthName})` : null });
+    }
 
     // 3. Longest Movie
-    { let b = null; movies.forEach(e => { const m = badgeLookupRuntime(e.title); if (m && (!b || m > b.mins)) b = { user: e.user, title: e.title, mins: m, monthName: e.monthName }; });
-      competitive.push({ id: 'longestMovie', icon: '🎞️', name: 'Butt Numb-a-Thon', desc: 'Watched the longest movie by runtime. Moves when someone watches a longer one.', holder: b?.user || null, stat: b ? `"${b.title}" — ${b.mins} min (${b.monthName})` : null }); }
+    {
+        let max = 0; movies.forEach(e => { const m = badgeLookupRuntime(e.title); if (m > max) max = m; });
+        const winners = max > 0 ? movies.filter(e => badgeLookupRuntime(e.title) === max) : [];
+        const uniqueWinners = [...new Set(winners.map(w => w.user))];
+        const sample = winners[0];
+        competitive.push({ id: 'longestMovie', icon: '🎞️', name: 'Butt Numb-a-Thon', desc: 'Watched the longest movie by runtime. Shared if multiple people watched the same movie.', holders: uniqueWinners, stat: sample ? `"${sample.title}" — ${max} min (${sample.monthName})` : null });
+    }
 
     // 4. Shortest Movie
-    { let b = null; movies.forEach(e => { const m = badgeLookupRuntime(e.title); if (m && (!b || m < b.mins)) b = { user: e.user, title: e.title, mins: m, monthName: e.monthName }; });
-      competitive.push({ id: 'shortestMovie', icon: '⚡', name: 'TikTok Brain', desc: 'Watched the shortest movie by runtime. Moves when someone watches a shorter one.', holder: b?.user || null, stat: b ? `"${b.title}" — ${b.mins} min (${b.monthName})` : null }); }
+    {
+        let min = Infinity; movies.forEach(e => { const m = badgeLookupRuntime(e.title); if (m && m < min) min = m; });
+        const winners = min !== Infinity ? movies.filter(e => badgeLookupRuntime(e.title) === min) : [];
+        const uniqueWinners = [...new Set(winners.map(w => w.user))];
+        const sample = winners[0];
+        competitive.push({ id: 'shortestMovie', icon: '⚡', name: 'TikTok Brain', desc: 'Watched shortest movie by runtime. Shared if multiple people watched the same movie.', holders: uniqueWinners, stat: sample ? `"${sample.title}" — ${min} min (${sample.monthName})` : null });
+    }
 
     // 5. Feminist — highest % female authors
     {
         const byUser = {}; USERS.forEach(u => { byUser[u] = { female: 0, total: 0 }; });
         books.forEach(e => { if (e.authorGender) { byUser[e.user].total++; if (e.authorGender === 'F') byUser[e.user].female++; } });
-        let b = null;
-        USERS.forEach(u => { const d = byUser[u]; if (d.total < 2) return; const pct = d.female / d.total; if (!b || pct > b.pct) b = { user: u, pct, female: d.female, total: d.total }; });
-        competitive.push({ id: 'feminist', icon: '✊', name: 'The Feminist', desc: 'Highest % of books by female authors (min 2 rated books with gender data).', holder: b?.user || null, stat: b ? `${b.female} of ${b.total} books by female authors (${Math.round(b.pct * 100)}%)` : null });
+        let maxPct = -1;
+        USERS.forEach(u => { const d = byUser[u]; if (d.total < 2) return; const pct = d.female / d.total; if (pct > maxPct) maxPct = pct; });
+        const winners = maxPct >= 0 ? USERS.filter(u => byUser[u].total >= 2 && byUser[u].female / byUser[u].total === maxPct).map(u => ({ user: u, ...byUser[u] })) : [];
+        const sample = winners[0];
+        competitive.push({ id: 'feminist', icon: '✊', name: 'The Feminist', desc: 'Highest % of books by female authors (min 2 rated books with gender data).', holders: winners.map(w => w.user), stat: sample ? `${sample.female} of ${sample.total} books by female authors (${Math.round(maxPct * 100)}%)` : null });
     }
     // 6. Completionist — highest avg game rating
     {
         const byUser = {}; USERS.forEach(u => { byUser[u] = []; });
         games.forEach(e => byUser[e.user].push(e.rating));
-        let b = null;
-        USERS.forEach(u => { if (byUser[u].length < 3) return; const avg = byUser[u].reduce((a,v) => a+v,0)/byUser[u].length; if (!b || avg > b.avg) b = { user: u, avg: avg.toFixed(2), count: byUser[u].length }; });
-        competitive.push({ id: 'completionist', icon: '🎮', name: 'The Completionist', desc: 'Highest average game rating (min 3 games).', holder: b?.user || null, stat: b ? `Avg ${b.avg}/10 across ${b.count} games` : null });
+        let maxAvg = -1;
+        USERS.forEach(u => { if (byUser[u].length < 3) return; const avg = byUser[u].reduce((a,v) => a+v,0)/byUser[u].length; if (avg > maxAvg) maxAvg = avg; });
+        const winners = maxAvg >= 0 ? USERS.filter(u => byUser[u].length >= 3 && byUser[u].reduce((a,v) => a+v,0)/byUser[u].length === maxAvg).map(u => ({ user: u, count: byUser[u].length })) : [];
+        competitive.push({ id: 'completionist', icon: '🎮', name: 'The Completionist', desc: 'Highest average game rating (min 3 games).', holders: winners.map(w => w.user), stat: winners.length ? `Avg ${maxAvg.toFixed(2)}/10 across ${winners[0].count} games` : null });
     }
     // 7. Cinematheque — highest avg movie rating
     {
         const byUser = {}; USERS.forEach(u => { byUser[u] = []; });
         movies.forEach(e => byUser[e.user].push(e.rating));
-        let b = null;
-        USERS.forEach(u => { if (byUser[u].length < 3) return; const avg = byUser[u].reduce((a,v) => a+v,0)/byUser[u].length; if (!b || avg > b.avg) b = { user: u, avg: avg.toFixed(2), count: byUser[u].length }; });
-        competitive.push({ id: 'cinematheque', icon: '🎬', name: 'Cinematheque', desc: 'Highest average movie rating (min 3 movies).', holder: b?.user || null, stat: b ? `Avg ${b.avg}/10 across ${b.count} movies` : null });
+        let maxAvg = -1;
+        USERS.forEach(u => { if (byUser[u].length < 3) return; const avg = byUser[u].reduce((a,v) => a+v,0)/byUser[u].length; if (avg > maxAvg) maxAvg = avg; });
+        const winners = maxAvg >= 0 ? USERS.filter(u => byUser[u].length >= 3 && byUser[u].reduce((a,v) => a+v,0)/byUser[u].length === maxAvg).map(u => ({ user: u, count: byUser[u].length })) : [];
+        competitive.push({ id: 'cinematheque', icon: '🎬', name: 'Cinematheque', desc: 'Highest average movie rating (min 3 movies).', holders: winners.map(w => w.user), stat: winners.length ? `Avg ${maxAvg.toFixed(2)}/10 across ${winners[0].count} movies` : null });
     }
     // 8. Literary Critic — highest avg book rating
     {
         const byUser = {}; USERS.forEach(u => { byUser[u] = []; });
         books.forEach(e => byUser[e.user].push(e.rating));
-        let b = null;
-        USERS.forEach(u => { if (byUser[u].length < 3) return; const avg = byUser[u].reduce((a,v) => a+v,0)/byUser[u].length; if (!b || avg > b.avg) b = { user: u, avg: avg.toFixed(2), count: byUser[u].length }; });
-        competitive.push({ id: 'literaryCritic', icon: '📖', name: 'Literary Critic', desc: 'Highest average book rating (min 3 books).', holder: b?.user || null, stat: b ? `Avg ${b.avg}/10 across ${b.count} books` : null });
+        let maxAvg = -1;
+        USERS.forEach(u => { if (byUser[u].length < 3) return; const avg = byUser[u].reduce((a,v) => a+v,0)/byUser[u].length; if (avg > maxAvg) maxAvg = avg; });
+        const winners = maxAvg >= 0 ? USERS.filter(u => byUser[u].length >= 3 && byUser[u].reduce((a,v) => a+v,0)/byUser[u].length === maxAvg).map(u => ({ user: u, count: byUser[u].length })) : [];
+        competitive.push({ id: 'literaryCritic', icon: '📖', name: 'Literary Critic', desc: 'Highest average book rating (min 3 books).', holders: winners.map(w => w.user), stat: winners.length ? `Avg ${maxAvg.toFixed(2)}/10 across ${winners[0].count} books` : null });
     }
     // 9. Hater — most ratings ≤ 4
     {
         const byUser = {}; USERS.forEach(u => { byUser[u] = 0; });
         entries.forEach(e => { if (e.rating <= 4) byUser[e.user]++; });
-        let b = null;
-        USERS.forEach(u => { if (!b || byUser[u] > b.count) b = { user: u, count: byUser[u] }; });
-        if (b && b.count === 0) b = null;
-        competitive.push({ id: 'hater', icon: '👎', name: 'The Hater', desc: 'Most ratings given that were 4 or below. Real tough crowd.', holder: b?.user || null, stat: b ? `${b.count} low ratings (1–4) given` : null });
+        let maxCount = 0; USERS.forEach(u => { if (byUser[u] > maxCount) maxCount = byUser[u]; });
+        const winners = maxCount > 0 ? USERS.filter(u => byUser[u] === maxCount) : [];
+        competitive.push({ id: 'hater', icon: '👎', name: 'The Hater', desc: 'Most ratings given that were 4 or below. Real tough crowd.', holders: winners, stat: maxCount > 0 ? `${maxCount} low ratings (1–4) given` : null });
     }
     // 10. Stan — most 10/10 ratings
     {
         const byUser = {}; USERS.forEach(u => { byUser[u] = 0; });
         entries.forEach(e => { if (e.rating === 10) byUser[e.user]++; });
-        let b = null;
-        USERS.forEach(u => { if (!b || byUser[u] > b.count) b = { user: u, count: byUser[u] }; });
-        if (b && b.count === 0) b = null;
-        competitive.push({ id: 'stan', icon: '⭐', name: 'The Stan', desc: 'Most perfect 10/10 ratings given.', holder: b?.user || null, stat: b ? `${b.count} perfect 10/10 ratings given` : null });
+        let maxCount = 0; USERS.forEach(u => { if (byUser[u] > maxCount) maxCount = byUser[u]; });
+        const winners = maxCount > 0 ? USERS.filter(u => byUser[u] === maxCount) : [];
+        competitive.push({ id: 'stan', icon: '⭐', name: 'The Stan', desc: 'Most perfect 10/10 ratings given.', holders: winners, stat: maxCount > 0 ? `${maxCount} perfect 10/10 ratings given` : null });
     }
     // 11. Dictator — most months as dictator
     {
         const byUser = {}; USERS.forEach(u => { byUser[u] = 0; });
         state.months.forEach(m => { if (m.mode === 'dictator' && m.dictator) byUser[m.dictator]++; });
-        let b = null;
-        USERS.forEach(u => { if (!b || byUser[u] > b.count) b = { user: u, count: byUser[u] }; });
-        if (b && b.count === 0) b = null;
-        competitive.push({ id: 'dictator', icon: '👑', name: 'The Dictator', desc: 'Has been the club dictator the most months.', holder: b?.user || null, stat: b ? `Dictator for ${b.count} month${b.count !== 1 ? 's' : ''}` : null });
+        let maxCount = 0; USERS.forEach(u => { if (byUser[u] > maxCount) maxCount = byUser[u]; });
+        const winners = maxCount > 0 ? USERS.filter(u => byUser[u] === maxCount) : [];
+        competitive.push({ id: 'dictator', icon: '👑', name: 'The Dictator', desc: 'Has been club dictator most months.', holders: winners, stat: maxCount > 0 ? `Dictator for ${maxCount} month${maxCount !== 1 ? 's' : ''}` : null });
     }
     // 12. Most Controversial
     {
@@ -1872,10 +1894,12 @@ function computeBadges() {
             const avg = grp.reduce((a, e) => a + e.rating, 0) / grp.length;
             grp.forEach(e => { userDevs[e.user].total += Math.abs(e.rating - avg); userDevs[e.user].count++; });
         });
-        let b = null;
-        USERS.forEach(u => { if (userDevs[u].count < 3) return; const avgDev = userDevs[u].total / userDevs[u].count; if (!b || avgDev > b.avgDev) b = { user: u, avgDev: avgDev.toFixed(2), count: userDevs[u].count }; });
-        competitive.push({ id: 'controversial', icon: '🎲', name: 'Most Controversial', desc: "Ratings deviate most from the group average. Their taste is… polarizing.", holder: b?.user || null, stat: b ? `Avg ${b.avgDev} pts from group mean (${b.count} shared titles)` : null });
+        let maxDev = -1;
+        USERS.forEach(u => { if (userDevs[u].count < 3) return; const avgDev = userDevs[u].total / userDevs[u].count; if (avgDev > maxDev) maxDev = avgDev; });
+        const winners = maxDev >= 0 ? USERS.filter(u => userDevs[u].count >= 3 && userDevs[u].total / userDevs[u].count === maxDev).map(u => ({ user: u, count: userDevs[u].count })) : [];
+        competitive.push({ id: 'controversial', icon: '🎲', name: 'Most Controversial', desc: "Ratings deviate most from group average. DIVISIVE.", holders: winners.map(w => w.user), stat: winners.length ? `Avg ${maxDev.toFixed(2)} pts from group mean (${winners[0].count} titles)` : null });
     }
+
 
     // ── ACHIEVEMENTS (non-exclusive, multiple earners) ───────────────────────
 
@@ -2038,13 +2062,14 @@ function renderBadgesPage() {
 
     // Build competitive cards
     let compHtml = competitive.map(b => {
-        const earned = !!b.holder;
+        const earned = b.holders && b.holders.length > 0;
+        const holderChips = earned ? b.holders.map(h => holderChip(h)).join('') : '<div class="badge-locked-label">Not yet awarded</div>';
         return `
         <div class="badge-item ${earned ? 'earned' : 'locked'}">
             ${medalHtml(b.icon, earned)}
             <div class="badge-name">${b.name}</div>
             <div class="badge-holders-container">
-                ${earned ? holderChip(b.holder) : '<div class="badge-locked-label">Not yet awarded</div>'}
+                ${holderChips}
             </div>
             ${b.stat && earned ? `<div class="badge-tooltip-stat" style="margin-top: 5px; font-size: 0.75rem; color: #f7c948; font-weight: 600;">${b.stat}</div>` : ''}
             <div class="badge-tooltip">
@@ -2054,6 +2079,7 @@ function renderBadgesPage() {
             </div>
         </div>`;
     }).join('');
+
 
     // Build achievement cards
     let achHtml = achievements.map(b => {
