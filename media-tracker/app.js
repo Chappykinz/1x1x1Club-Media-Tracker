@@ -1672,9 +1672,8 @@ window.autoFetchGlobalImage = async function (type) {
 // ===== BADGE SYSTEM =====
 
 const BOOK_PAGE_COUNTS = {
-    'lock in': 336, 'locked in': 336, 'lock in (john scalzi)': 336,
-    'the mercy of gods': 304, 'empire of the damned': 416, 'the last honest man': 336,
-    'educated': 352,
+    'lock in': 336, 'locked in': 336, 'the mercy of gods': 304,
+    'empire of the damned': 416, 'the last honest man': 336, 'educated': 352,
     'the way of kings': 1007, 'the way of kings (the stormlight archive)': 1007,
     'fury of the gods': 320, 'left hand of darkness': 296, 'the left hand of darkness': 296,
     'dungeon crawler carl': 464,
@@ -1682,14 +1681,12 @@ const BOOK_PAGE_COUNTS = {
     'words of radiance': 1087,
     'the kind worth killing': 352, 'claudius the god': 488,
     'american war': 352, 'with the old blood': 326, 'with the old breed': 326,
-    'pillars of the earth': 992, 'the pillars of the earth': 992,
-    'original sin': 352,
-    'the fifth season': 468, 'the fifth season (n.k. jemisin)': 468,
-    'bad mexicans': 368, 'the sequel': 320, 'king of ashes': 288, 'frankenstein': 216,
+    'pillars of the earth': 992, 'the pillars of the earth': 992, 'original sin': 352,
+    'the fifth season': 468, 'bad mexicans': 368, 'the sequel': 320,
+    'king of ashes': 288, 'frankenstein': 216,
     'the house on the cerulean sea': 400, 'the house in the cerulean sea': 400,
     'oathbringer': 1248, 'oathbringer (stormlight chronicles book 3)': 1248,
-    'the world according to garp': 609, 'jurassic park': 400,
-    'the proud tower': 528,
+    'the world according to garp': 609, 'jurassic park': 400, 'the proud tower': 528,
     'tomorrow, tomorrow, and tomorrow': 480, 'tomorrow and tomorrow and tomorrow': 480,
     'ararat': 304, 'the devils': 528,
     'lies of locke lamora': 752, 'the lies of locke lamora': 752,
@@ -1711,13 +1708,46 @@ const MOVIE_RUNTIMES = {
     'eddington': 148, 'ballerina': 100,
 };
 
-function badgeLookupPages(title) {
-    return title ? (BOOK_PAGE_COUNTS[title.toLowerCase().trim()] || null) : null;
-}
+// Genre/category sets for non-exclusive achievement badges
+const SCIFI_TITLES = new Set([
+    'lock in', 'locked in', 'the mercy of gods', 'dungeon crawler carl',
+    'the fifth season', 'words of radiance', 'the way of kings', 'oathbringer',
+    'oathbringer (stormlight chronicles book 3)', 'nexus',
+    'nexus: a brief history of information networks from the stone age to ai',
+    'mickey 17', 'the wild robot',
+]);
+const FANTASY_TITLES = new Set([
+    'the way of kings', 'the way of kings (the stormlight archive)',
+    'words of radiance', 'oathbringer', 'oathbringer (stormlight chronicles book 3)',
+    'mistborn', 'mistborn: the final empire',
+    'the lies of locke lamora', 'lies of locke lamora',
+    'the devils', 'empire of the damned', 'fury of the gods',
+    'king of ashes', 'the fifth season', 'dungeon crawler carl',
+    'the house on the cerulean sea', 'the house in the cerulean sea',
+]);
+const NONFICTION_TITLES = new Set([
+    'educated', 'the last honest man', 'bad mexicans', 'with the old breed', 'with the old blood',
+    'the proud tower', 'chip wars', 'the crusades', 'anthropocene reviewed',
+    'original sin', 'nexus', 'nexus: a brief history of information networks from the stone age to ai',
+    'no other land',
+]);
+const HORROR_TITLES = new Set([
+    'ararat', 'frankenstein', 'heretic', 'nosferatu', 'the substance', 'the lighthouse',
+    'the kind worth killing',
+]);
+const SCIFI_MOVIE_TITLES = new Set([
+    'alien', 'mickey 17', 'fantastic four', 'sonic 3', 'the wild robot',
+    'kpop demon hunters', 'captain america: brave new world',
+]);
+const ROMANCE_TITLES = new Set([
+    'the house on the cerulean sea', 'the house in the cerulean sea',
+    'como agua para chocolate', 'wicked', 'tomorrow and tomorrow and tomorrow',
+    'tomorrow, tomorrow, and tomorrow',
+]);
 
-function badgeLookupRuntime(title) {
-    return title ? (MOVIE_RUNTIMES[title.toLowerCase().trim()] || null) : null;
-}
+
+function badgeLookupPages(t) { return t ? (BOOK_PAGE_COUNTS[t.toLowerCase().trim()] || null) : null; }
+function badgeLookupRuntime(t) { return t ? (MOVIE_RUNTIMES[t.toLowerCase().trim()] || null) : null; }
 
 function badgeGetAllEntries() {
     const entries = [];
@@ -1745,80 +1775,92 @@ function badgeGetAllEntries() {
     return entries;
 }
 
+// Returns { competitiveBadges: [{ ...def, holder, stat }], achievementBadges: [{ ...def, holders: [{ user, stat }] }] }
 function computeBadges() {
     const entries = badgeGetAllEntries();
     const books  = entries.filter(e => e.type === 'book');
     const movies = entries.filter(e => e.type === 'movie');
     const games  = entries.filter(e => e.type === 'game');
-    const res = {};
+
+    const competitive = [];
+    const achievements = [];
+
+    // ── COMPETITIVE (exclusive, one holder) ──────────────────────────────────
 
     // 1. Longest Book
-    { let b = null; books.forEach(e => { const p = badgeLookupPages(e.title); if (p && (!b || p > b.pages)) b = { user: e.user, title: e.title, pages: p, monthName: e.monthName }; }); res.longestBook = b; }
-    // 2. Shortest Book
-    { let b = null; books.forEach(e => { const p = badgeLookupPages(e.title); if (p && (!b || p < b.pages)) b = { user: e.user, title: e.title, pages: p, monthName: e.monthName }; }); res.shortestBook = b; }
-    // 3. Longest Movie
-    { let b = null; movies.forEach(e => { const m = badgeLookupRuntime(e.title); if (m && (!b || m > b.mins)) b = { user: e.user, title: e.title, mins: m, monthName: e.monthName }; }); res.longestMovie = b; }
-    // 4. Shortest Movie
-    { let b = null; movies.forEach(e => { const m = badgeLookupRuntime(e.title); if (m && (!b || m < b.mins)) b = { user: e.user, title: e.title, mins: m, monthName: e.monthName }; }); res.shortestMovie = b; }
+    { let b = null; books.forEach(e => { const p = badgeLookupPages(e.title); if (p && (!b || p > b.pages)) b = { user: e.user, title: e.title, pages: p, monthName: e.monthName }; });
+      competitive.push({ id: 'longestBook', icon: '📚', name: 'War & Peace', desc: 'Read the longest book by page count. Moves when someone reads a longer one.', holder: b?.user || null, stat: b ? `"${b.title}" — ${b.pages.toLocaleString()} pages (${b.monthName})` : null }); }
 
-    // 5. Feminist
+    // 2. Shortest Book
+    { let b = null; books.forEach(e => { const p = badgeLookupPages(e.title); if (p && (!b || p < b.pages)) b = { user: e.user, title: e.title, pages: p, monthName: e.monthName }; });
+      competitive.push({ id: 'shortestBook', icon: '🐦', name: 'Twitter Thread', desc: 'Read the shortest book by page count. Moves when someone reads a shorter one.', holder: b?.user || null, stat: b ? `"${b.title}" — ${b.pages.toLocaleString()} pages (${b.monthName})` : null }); }
+
+    // 3. Longest Movie
+    { let b = null; movies.forEach(e => { const m = badgeLookupRuntime(e.title); if (m && (!b || m > b.mins)) b = { user: e.user, title: e.title, mins: m, monthName: e.monthName }; });
+      competitive.push({ id: 'longestMovie', icon: '🎞️', name: 'Butt Numb-a-Thon', desc: 'Watched the longest movie by runtime. Moves when someone watches a longer one.', holder: b?.user || null, stat: b ? `"${b.title}" — ${b.mins} min (${b.monthName})` : null }); }
+
+    // 4. Shortest Movie
+    { let b = null; movies.forEach(e => { const m = badgeLookupRuntime(e.title); if (m && (!b || m < b.mins)) b = { user: e.user, title: e.title, mins: m, monthName: e.monthName }; });
+      competitive.push({ id: 'shortestMovie', icon: '⚡', name: 'TikTok Brain', desc: 'Watched the shortest movie by runtime. Moves when someone watches a shorter one.', holder: b?.user || null, stat: b ? `"${b.title}" — ${b.mins} min (${b.monthName})` : null }); }
+
+    // 5. Feminist — highest % female authors
     {
         const byUser = {}; USERS.forEach(u => { byUser[u] = { female: 0, total: 0 }; });
         books.forEach(e => { if (e.authorGender) { byUser[e.user].total++; if (e.authorGender === 'F') byUser[e.user].female++; } });
         let b = null;
         USERS.forEach(u => { const d = byUser[u]; if (d.total < 2) return; const pct = d.female / d.total; if (!b || pct > b.pct) b = { user: u, pct, female: d.female, total: d.total }; });
-        res.feminist = b;
+        competitive.push({ id: 'feminist', icon: '✊', name: 'The Feminist', desc: 'Highest % of books by female authors (min 2 rated books with gender data).', holder: b?.user || null, stat: b ? `${b.female} of ${b.total} books by female authors (${Math.round(b.pct * 100)}%)` : null });
     }
-    // 6. Completionist
+    // 6. Completionist — highest avg game rating
     {
         const byUser = {}; USERS.forEach(u => { byUser[u] = []; });
         games.forEach(e => byUser[e.user].push(e.rating));
         let b = null;
         USERS.forEach(u => { if (byUser[u].length < 3) return; const avg = byUser[u].reduce((a,v) => a+v,0)/byUser[u].length; if (!b || avg > b.avg) b = { user: u, avg: avg.toFixed(2), count: byUser[u].length }; });
-        res.completionist = b;
+        competitive.push({ id: 'completionist', icon: '🎮', name: 'The Completionist', desc: 'Highest average game rating (min 3 games).', holder: b?.user || null, stat: b ? `Avg ${b.avg}/10 across ${b.count} games` : null });
     }
-    // 7. Cinematheque
+    // 7. Cinematheque — highest avg movie rating
     {
         const byUser = {}; USERS.forEach(u => { byUser[u] = []; });
         movies.forEach(e => byUser[e.user].push(e.rating));
         let b = null;
         USERS.forEach(u => { if (byUser[u].length < 3) return; const avg = byUser[u].reduce((a,v) => a+v,0)/byUser[u].length; if (!b || avg > b.avg) b = { user: u, avg: avg.toFixed(2), count: byUser[u].length }; });
-        res.cinematheque = b;
+        competitive.push({ id: 'cinematheque', icon: '🎬', name: 'Cinematheque', desc: 'Highest average movie rating (min 3 movies).', holder: b?.user || null, stat: b ? `Avg ${b.avg}/10 across ${b.count} movies` : null });
     }
-    // 8. Literary Critic
+    // 8. Literary Critic — highest avg book rating
     {
         const byUser = {}; USERS.forEach(u => { byUser[u] = []; });
         books.forEach(e => byUser[e.user].push(e.rating));
         let b = null;
         USERS.forEach(u => { if (byUser[u].length < 3) return; const avg = byUser[u].reduce((a,v) => a+v,0)/byUser[u].length; if (!b || avg > b.avg) b = { user: u, avg: avg.toFixed(2), count: byUser[u].length }; });
-        res.literaryCritic = b;
+        competitive.push({ id: 'literaryCritic', icon: '📖', name: 'Literary Critic', desc: 'Highest average book rating (min 3 books).', holder: b?.user || null, stat: b ? `Avg ${b.avg}/10 across ${b.count} books` : null });
     }
-    // 9. Hater
+    // 9. Hater — most ratings ≤ 4
     {
         const byUser = {}; USERS.forEach(u => { byUser[u] = 0; });
         entries.forEach(e => { if (e.rating <= 4) byUser[e.user]++; });
         let b = null;
         USERS.forEach(u => { if (!b || byUser[u] > b.count) b = { user: u, count: byUser[u] }; });
         if (b && b.count === 0) b = null;
-        res.hater = b;
+        competitive.push({ id: 'hater', icon: '👎', name: 'The Hater', desc: 'Most ratings given that were 4 or below. Real tough crowd.', holder: b?.user || null, stat: b ? `${b.count} low ratings (1–4) given` : null });
     }
-    // 10. Stan
+    // 10. Stan — most 10/10 ratings
     {
         const byUser = {}; USERS.forEach(u => { byUser[u] = 0; });
         entries.forEach(e => { if (e.rating === 10) byUser[e.user]++; });
         let b = null;
         USERS.forEach(u => { if (!b || byUser[u] > b.count) b = { user: u, count: byUser[u] }; });
         if (b && b.count === 0) b = null;
-        res.stan = b;
+        competitive.push({ id: 'stan', icon: '⭐', name: 'The Stan', desc: 'Most perfect 10/10 ratings given.', holder: b?.user || null, stat: b ? `${b.count} perfect 10/10 ratings given` : null });
     }
-    // 11. Dictator
+    // 11. Dictator — most months as dictator
     {
         const byUser = {}; USERS.forEach(u => { byUser[u] = 0; });
         state.months.forEach(m => { if (m.mode === 'dictator' && m.dictator) byUser[m.dictator]++; });
         let b = null;
         USERS.forEach(u => { if (!b || byUser[u] > b.count) b = { user: u, count: byUser[u] }; });
         if (b && b.count === 0) b = null;
-        res.dictator = b;
+        competitive.push({ id: 'dictator', icon: '👑', name: 'The Dictator', desc: 'Has been the club dictator the most months.', holder: b?.user || null, stat: b ? `Dictator for ${b.count} month${b.count !== 1 ? 's' : ''}` : null });
     }
     // 12. Most Controversial
     {
@@ -1832,65 +1874,259 @@ function computeBadges() {
         });
         let b = null;
         USERS.forEach(u => { if (userDevs[u].count < 3) return; const avgDev = userDevs[u].total / userDevs[u].count; if (!b || avgDev > b.avgDev) b = { user: u, avgDev: avgDev.toFixed(2), count: userDevs[u].count }; });
-        res.controversial = b;
+        competitive.push({ id: 'controversial', icon: '🎲', name: 'Most Controversial', desc: "Ratings deviate most from the group average. Their taste is… polarizing.", holder: b?.user || null, stat: b ? `Avg ${b.avgDev} pts from group mean (${b.count} shared titles)` : null });
     }
 
-    return res;
-}
+    // ── ACHIEVEMENTS (non-exclusive, multiple earners) ───────────────────────
 
-const BADGE_DEFS = [
-    { id: 'longestBook',    icon: '📚', name: 'War & Peace',         desc: 'Read the longest book by page count. Moves when someone reads a longer one.',       getStat: r => r ? `"${r.title}" — ${r.pages.toLocaleString()} pages (${r.monthName})` : null },
-    { id: 'shortestBook',   icon: '🐦', name: 'Twitter Thread',      desc: 'Read the shortest book by page count. Moves when someone reads a shorter one.',      getStat: r => r ? `"${r.title}" — ${r.pages.toLocaleString()} pages (${r.monthName})` : null },
-    { id: 'longestMovie',   icon: '🎞️', name: 'Butt Numb-a-Thon',   desc: 'Watched the longest movie by runtime. Moves when someone watches a longer one.',     getStat: r => r ? `"${r.title}" — ${r.mins} min (${r.monthName})` : null },
-    { id: 'shortestMovie',  icon: '⚡', name: 'TikTok Brain',        desc: 'Watched the shortest movie by runtime. Moves when someone watches a shorter one.',    getStat: r => r ? `"${r.title}" — ${r.mins} min (${r.monthName})` : null },
-    { id: 'feminist',       icon: '✊', name: 'The Feminist',         desc: 'Highest % of books by female authors (min 2 rated books with gender data).',         getStat: r => r ? `${r.female} of ${r.total} books by female authors (${Math.round(r.pct * 100)}%)` : null },
-    { id: 'completionist',  icon: '🎮', name: 'The Completionist',   desc: 'Highest average game rating (min 3 games).',                                          getStat: r => r ? `Avg ${r.avg}/10 across ${r.count} games` : null },
-    { id: 'cinematheque',   icon: '🎬', name: 'Cinematheque',        desc: 'Highest average movie rating (min 3 movies).',                                        getStat: r => r ? `Avg ${r.avg}/10 across ${r.count} movies` : null },
-    { id: 'literaryCritic', icon: '📖', name: 'Literary Critic',     desc: 'Highest average book rating (min 3 books).',                                          getStat: r => r ? `Avg ${r.avg}/10 across ${r.count} books` : null },
-    { id: 'hater',          icon: '👎', name: 'The Hater',           desc: 'Most ratings given that were 4 or below. Real tough crowd.',                          getStat: r => r ? `${r.count} low ratings (1–4) given` : null },
-    { id: 'stan',           icon: '⭐', name: 'The Stan',            desc: 'Most perfect 10/10 ratings given.',                                                   getStat: r => r ? `${r.count} perfect 10/10 ratings given` : null },
-    { id: 'dictator',       icon: '👑', name: 'The Dictator',        desc: 'Has been the club dictator the most months.',                                         getStat: r => r ? `Dictator for ${r.count} month${r.count !== 1 ? 's' : ''}` : null },
-    { id: 'controversial',  icon: '🎲', name: 'Most Controversial',  desc: "Ratings deviate the most from the group average. Their taste is… polarizing.",        getStat: r => r ? `Avg ${r.avgDev} pts from group mean (${r.count} shared titles)` : null },
-];
+    // Helper to build holder list
+    function achievers(testFn) {
+        // testFn(user, entries) → { earned: bool, stat: string } 
+        const holders = [];
+        USERS.forEach(u => {
+            const result = testFn(u, entries, books, movies, games);
+            if (result.earned) holders.push({ user: u, stat: result.stat });
+        });
+        return holders;
+    }
 
-function renderBadges() {
-    const modal = document.getElementById('badges-modal');
-    const content = document.getElementById('badges-modal-content');
-    const results = computeBadges();
-
-    let html = '';
-    BADGE_DEFS.forEach(def => {
-        const r = results[def.id];
-        const holder = r ? r.user : null;
-        const stat = def.getStat(r);
-        const earned = !!holder;
-        html += `
-            <div class="badge-item ${earned ? 'earned' : 'locked'}">
-                <div class="badge-medal">${def.icon}</div>
-                <div class="badge-ribbon"></div>
-                <div class="badge-name">${def.name}</div>
-                ${earned ? `<div class="badge-holder">🏅 ${holder}</div>` : `<div class="badge-locked-label">Not yet awarded</div>`}
-                <div class="badge-tooltip">
-                    <div class="badge-tooltip-title">${def.icon} ${def.name}</div>
-                    <div class="badge-tooltip-desc">${def.desc}</div>
-                    ${stat ? `<div class="badge-tooltip-stat">${stat}</div>` : ''}
-                </div>
-            </div>`;
+    // A. 1,000 Pages Club — read a book over 1,000 pages
+    achievements.push({
+        id: 'thousandPages', icon: '📰', name: '1,000 Pages Club',
+        desc: 'Read a book over 1,000 pages long.',
+        holders: achievers((u, _, bks) => {
+            const match = bks.filter(e => e.user === u).find(e => (badgeLookupPages(e.title) || 0) >= 1000);
+            return { earned: !!match, stat: match ? `"${match.title}" (${badgeLookupPages(match.title).toLocaleString()} pages)` : '' };
+        }),
     });
 
-    content.innerHTML = `
-        <div class="badge-modal-inner">
-            <div class="badge-modal-header">
-                <h2>🏅 Club Badges</h2>
-                <button class="badge-close-btn" id="badges-close-btn" title="Close">✕</button>
-            </div>
-            <div class="badge-grid">${html}</div>
-        </div>`;
+    // B. Sci-Fi Fan — read a sci-fi book
+    achievements.push({
+        id: 'scifiFan', icon: '🚀', name: 'Sci-Fi Fan',
+        desc: 'Read a science fiction book.',
+        holders: achievers((u, _, bks) => {
+            const match = bks.filter(e => e.user === u).find(e => SCIFI_TITLES.has(e.title.toLowerCase().trim()));
+            return { earned: !!match, stat: match ? `"${match.title}"` : '' };
+        }),
+    });
 
-    modal.classList.remove('hidden');
-    document.getElementById('badges-close-btn').addEventListener('click', () => modal.classList.add('hidden'));
-    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.add('hidden'); }, { once: true });
+    // C. Fantasy Fan — read a fantasy book
+    achievements.push({
+        id: 'fantasyFan', icon: '🧙', name: 'Fantasy Fan',
+        desc: 'Read a fantasy book.',
+        holders: achievers((u, _, bks) => {
+            const match = bks.filter(e => e.user === u).find(e => FANTASY_TITLES.has(e.title.toLowerCase().trim()));
+            return { earned: !!match, stat: match ? `"${match.title}"` : '' };
+        }),
+    });
+
+    // D. Non-Fiction Nerd
+    achievements.push({
+        id: 'nonFiction', icon: '📰', name: 'Non-Fiction Nerd',
+        desc: 'Read a non-fiction book.',
+        holders: achievers((u, _, bks) => {
+            const match = bks.filter(e => e.user === u).find(e => NONFICTION_TITLES.has(e.title.toLowerCase().trim()));
+            return { earned: !!match, stat: match ? `"${match.title}"` : '' };
+        }),
+    });
+
+    // E. Horror Fan
+    achievements.push({
+        id: 'horrorFan', icon: '👻', name: 'Horror Fan',
+        desc: 'Read or watched a horror title.',
+        holders: achievers((u, all) => {
+            const match = all.filter(e => e.user === u).find(e => HORROR_TITLES.has(e.title.toLowerCase().trim()));
+            return { earned: !!match, stat: match ? `"${match.title}"` : '' };
+        }),
+    });
+
+    // F. Female Voice — read a book by a female author
+    achievements.push({
+        id: 'femaleVoice', icon: '✍️', name: 'Female Voice',
+        desc: 'Read a book written by a female author.',
+        holders: achievers((u, _, bks) => {
+            const match = bks.filter(e => e.user === u).find(e => e.authorGender === 'F');
+            return { earned: !!match, stat: match ? `"${match.title}"` : '' };
+        }),
+    });
+
+    // G. Perfect Score — gave a 10/10 rating
+    achievements.push({
+        id: 'perfectScore', icon: '💯', name: 'Perfect Score',
+        desc: 'Gave a perfect 10/10 rating to any media.',
+        holders: achievers((u, all) => {
+            const match = all.filter(e => e.user === u).find(e => e.rating === 10);
+            return { earned: !!match, stat: match ? `"${match.title}" (${match.type})` : '' };
+        }),
+    });
+
+    // H. Harsh Critic — gave a rating of 3 or below
+    achievements.push({
+        id: 'harshCritic', icon: '🔥', name: 'Harsh Critic',
+        desc: 'Gave a brutal rating of 3 or below.',
+        holders: achievers((u, all) => {
+            const match = all.filter(e => e.user === u).find(e => e.rating <= 3);
+            return { earned: !!match, stat: match ? `"${match.title}" — ${match.rating}/10` : '' };
+        }),
+    });
+
+    // I. Sci-Fi Movie Fan
+    achievements.push({
+        id: 'scifiMovie', icon: '🛸', name: 'Sci-Fi Movie Fan',
+        desc: 'Watched a sci-fi movie.',
+        holders: achievers((u, _, _b, mvs) => {
+            const match = mvs.filter(e => e.user === u).find(e => SCIFI_MOVIE_TITLES.has(e.title.toLowerCase().trim()));
+            return { earned: !!match, stat: match ? `"${match.title}"` : '' };
+        }),
+    });
+
+    // J. Dictator Month Survivor — participated in a dictator month
+    achievements.push({
+        id: 'survivor', icon: '🏴', name: 'Survivor',
+        desc: 'Participated in a dictator month (had no say in the picks).',
+        holders: achievers((u) => {
+            const participated = state.months.some(m => m.mode === 'dictator' && m.entries?.[u]);
+            return { earned: participated, stat: participated ? 'Endured the Dictator' : '' };
+        }),
+    });
+
+    // K. Back to Back — read the same book across 2 months (dictator re-pick, etc.) — OR rated the same person's Dictator pick as the dictator. Actually simpler: participated in a month where score ≥ 9
+    achievements.push({
+        id: 'masterpiece', icon: '🌟', name: 'Instant Classic',
+        desc: 'Gave a 9 or 10 rating to any media.',
+        holders: achievers((u, all) => {
+            const match = all.filter(e => e.user === u).find(e => e.rating >= 9);
+            return { earned: !!match, stat: match ? `"${match.title}" — ${match.rating}/10` : '' };
+        }),
+    });
+
+    // L. Speed Reader — read 3+ books in a single month (dictator months count)
+    achievements.push({
+        id: 'speedReader', icon: '⚡', name: 'Speed Reader',
+        desc: 'Individually tracked 3 or more books across your history.',
+        holders: achievers((u, _, bks) => {
+            const count = bks.filter(e => e.user === u).length;
+            return { earned: count >= 3, stat: count >= 3 ? `Read ${count} books total` : '' };
+        }),
+    });
+
+    // M. Romance Fan
+    achievements.push({
+        id: 'romanceFan', icon: '💖', name: 'Romance Fan',
+        desc: 'Read or watched a romance-themed media.',
+        holders: achievers((u, all) => {
+            const match = all.filter(e => e.user === u).find(e => ROMANCE_TITLES.has(e.title.toLowerCase().trim()));
+            return { earned: !!match, stat: match ? `"${match.title}"` : '' };
+        }),
+    });
+
+
+    return { competitive, achievements };
 }
 
-document.getElementById('badges-btn').addEventListener('click', renderBadges);
+function renderBadgesPage() {
+    const { competitive, achievements } = computeBadges();
+    const USER_COLORS_LOCAL = { "Andrew": "#FF6B6B", "Tom": "#4ECDC4", "Ross": "#FFE66D", "Sean": "#845EC2" };
+
+    function medalHtml(icon, earned) {
+        return `<div class="badge-medal${earned ? ' earned' : ''}">${icon}</div><div class="badge-ribbon"></div>`;
+    }
+
+    function holderChip(user) {
+        return `<span class="badge-holder" style="background: ${USER_COLORS_LOCAL[user]}22; border: 1px solid ${USER_COLORS_LOCAL[user]}55; color: ${USER_COLORS_LOCAL[user]};">${user}</span>`;
+    }
+
+    // Build competitive cards
+    let compHtml = competitive.map(b => {
+        const earned = !!b.holder;
+        return `
+        <div class="badge-item ${earned ? 'earned' : 'locked'}">
+            ${medalHtml(b.icon, earned)}
+            <div class="badge-name">${b.name}</div>
+            <div class="badge-holders-container">
+                ${earned ? holderChip(b.holder) : '<div class="badge-locked-label">Not yet awarded</div>'}
+            </div>
+            ${b.stat && earned ? `<div class="badge-tooltip-stat" style="margin-top: 5px; font-size: 0.75rem; color: #f7c948; font-weight: 600;">${b.stat}</div>` : ''}
+            <div class="badge-tooltip">
+                <div class="badge-tooltip-title">${b.icon} ${b.name}</div>
+                <div class="badge-tooltip-desc">${b.desc}</div>
+                ${b.stat ? `<div class="badge-tooltip-stat">${b.stat}</div>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+
+    // Build achievement cards
+    let achHtml = achievements.map(b => {
+        const earned = b.holders.length > 0;
+        const holderChips = b.holders.map(h => `<div style="display: flex; align-items: center; gap: 4px;">${holderChip(h.user)}${h.stat ? `<span style="font-size: 0.7rem; color: #aaa;"> ${h.stat}</span>` : ''}</div>`).join('');
+        return `
+        <div class="badge-item ${earned ? 'earned' : 'locked'}">
+            ${medalHtml(b.icon, earned)}
+            <div class="badge-name">${b.name}</div>
+            <div class="badge-holders-container">
+                ${earned ? holderChips : '<div class="badge-locked-label">Not yet earned by anyone</div>'}
+            </div>
+            <div class="badge-tooltip">
+                <div class="badge-tooltip-title">${b.icon} ${b.name}</div>
+                <div class="badge-tooltip-desc">${b.desc}</div>
+            </div>
+        </div>`;
+    }).join('');
+
+
+    mainContent.innerHTML = `
+        <div class="badges-page fade-in">
+            <div class="badges-page-header">
+                <button class="btn-secondary badges-back-btn" onclick="state.viewMode='month'; render();">← Back</button>
+                <div>
+                    <h1 class="badges-title">🏅 Club Trophy Case</h1>
+                    <p class="badges-subtitle">Dynamic awards based on your media history</p>
+                </div>
+            </div>
+
+            <div class="badges-section-label">
+                <span class="badges-section-icon">🏆</span>
+                Competitive Titles
+                <span class="badges-section-note">Only one person holds each at a time</span>
+            </div>
+            <div class="badge-grid">${compHtml}</div>
+
+            <div class="badges-section-label" style="margin-top: 3rem;">
+                <span class="badges-section-icon">🎖️</span>
+                Achievements
+                <span class="badges-section-note">Anyone can earn these</span>
+            </div>
+            <div class="badge-grid">${achHtml}</div>
+        </div>
+    `;
+}
+
+// Hook badges button into the view system (same pattern as Stats)
+const badgesBtn = document.getElementById('badges-btn');
+if (badgesBtn) {
+    badgesBtn.addEventListener('click', () => {
+        state.viewMode = 'badges';
+        render();
+    });
+}
+
+// Patch renderContent to handle badges view
+const _origRenderContent = renderContent;
+renderContent = function() {
+    if (state.viewMode === 'badges') {
+        renderBadgesPage();
+        return;
+    }
+    _origRenderContent();
+};
+
+
+
+
+
+
+
+
+
+
 
