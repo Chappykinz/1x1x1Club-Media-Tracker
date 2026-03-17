@@ -33,7 +33,8 @@ const db = firebase.database();
 let state = {
     months: [],
     currentMonthId: null,
-    viewMode: 'month' // 'month' or 'stats'
+    viewMode: 'month', // 'month', 'stats', 'badges', or 'wishlist'
+    wishlists: {} // keyed by username, each is an array of wishlist items
 };
 
 function getDefaultMonthId(months) {
@@ -80,6 +81,16 @@ async function loadData() {
             if (!state.currentMonthId && state.months.length > 0) {
                 state.currentMonthId = getDefaultMonthId(state.months);
             }
+            render();
+        }
+    });
+
+    // Load wishlists from Firebase
+    db.ref('mediaTrackerState/wishlists').on('value', (snapshot) => {
+        const wishlistData = snapshot.val();
+        state.wishlists = wishlistData || {};
+        // Re-render if we're on the wishlist page
+        if (state.viewMode === 'wishlist') {
             render();
         }
     });
@@ -524,6 +535,11 @@ function renderMediaItemsForUser(month, user, isEdit) {
             `;
         } else {
             const titleDisplay = displayTitle ? `<strong>${displayTitle}</strong>${extraDisplay}` : `<span style="opacity: 0.3">No ${type} added</span>`;
+            // Wishlist button: show on other users' columns when there's a title
+            const showWishlistBtn = displayTitle && currentUser && currentUser !== user;
+            const wishlistReferrer = month.mode === 'dictator' ? month.dictator : user;
+            const escapedTitle = (displayTitle || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            const escapedImage = (displayImage || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
             output += `
                 <div class="user-item">
                     <div class="media-type">${type.toUpperCase()}</div>
@@ -534,6 +550,7 @@ function renderMediaItemsForUser(month, user, isEdit) {
                                 ${entry.rating ? `<div class="media-rating" style="color: ${getRatingColor(entry.rating)}; align-self: flex-start;">${entry.rating}/10</div>` : ''}
                             </div>
                             ${entry.thoughts ? `<div style="margin-top:0.5rem;"><a class="read-review-link" style="color:var(--accent); cursor:pointer; font-size: 0.9rem; text-decoration:underline;" onclick="showReviewModal(this)" data-image="${displayImage || ''}" data-thoughts="${entry.thoughts.replace(/"/g, '&quot;')}">Read Review</a></div>` : ''}
+                            ${showWishlistBtn ? `<button class="wishlist-add-btn" onclick="addToWishlist('${escapedTitle}', '${type}', '${wishlistReferrer}', '${escapedImage}')">📋 + Wishlist</button>` : ''}
                         </div>
                         ${displayImage ? `<img src="${displayImage}" alt="Cover" class="media-thumbnail" style="cursor: zoom-in;" onclick="document.getElementById('image-lightbox-img').src=this.src; document.getElementById('image-lightbox-modal').classList.remove('hidden');" />` : ''}
                     </div>
@@ -2136,23 +2153,152 @@ if (badgesBtn) {
     });
 }
 
-// Patch renderContent to handle badges view
+// Patch renderContent to handle badges and wishlist views
 const _origRenderContent = renderContent;
 renderContent = function() {
     if (state.viewMode === 'badges') {
         renderBadgesPage();
         return;
     }
+    if (state.viewMode === 'wishlist') {
+        renderWishlistPage();
+        return;
+    }
     _origRenderContent();
 };
 
+// --- Wishlist Feature ---
 
+// Wishlist button listener
+const wishlistBtn = document.getElementById('wishlist-btn');
+if (wishlistBtn) {
+    wishlistBtn.addEventListener('click', () => {
+        state.viewMode = 'wishlist';
+        render();
+    });
+}
 
+window.addToWishlist = function(title, type, referredBy, imageUrl) {
+    if (!currentUser) return;
+    const userWishlist = state.wishlists[currentUser] || [];
 
+    // Dedup check: don't add if same title+type already exists
+    const exists = userWishlist.some(item => item.title.toLowerCase() === title.toLowerCase() && item.type === type);
+    if (exists) {
+        alert(`"${title}" is already on your wishlist!`);
+        return;
+    }
 
+    userWishlist.push({
+        title: title,
+        type: type,
+        referredBy: referredBy || null,
+        imageUrl: imageUrl || '',
+        addedAt: Date.now()
+    });
 
+    state.wishlists[currentUser] = userWishlist;
+    db.ref('mediaTrackerState/wishlists/' + currentUser).set(userWishlist);
 
+    // Quick visual feedback
+    const feedback = document.createElement('div');
+    feedback.textContent = `✓ Added "${title}" to your wishlist`;
+    feedback.style.cssText = 'position:fixed; bottom:2rem; left:50%; transform:translateX(-50%); background:rgba(46,160,67,0.9); color:white; padding:0.8rem 1.5rem; border-radius:10px; font-size:0.9rem; z-index:9999; animation:fadeIn 0.3s ease;';
+    document.body.appendChild(feedback);
+    setTimeout(() => feedback.remove(), 2500);
+};
 
+window.removeFromWishlist = function(index) {
+    if (!currentUser) return;
+    const userWishlist = state.wishlists[currentUser] || [];
+    if (index < 0 || index >= userWishlist.length) return;
 
+    userWishlist.splice(index, 1);
+    state.wishlists[currentUser] = userWishlist;
+    db.ref('mediaTrackerState/wishlists/' + currentUser).set(userWishlist);
+    render();
+};
 
+function renderWishlistPage() {
+    if (!currentUser) return;
+    const userWishlist = state.wishlists[currentUser] || [];
 
+    const columns = [
+        { type: 'game', label: 'Games I Want to Play', icon: '🎮' },
+        { type: 'movie', label: 'Movies I Want to Watch', icon: '🎬' },
+        { type: 'book', label: 'Books I Want to Read', icon: '📚' }
+    ];
+
+    const USER_COLORS_WL = { "Andrew": "#FF6B6B", "Tom": "#4ECDC4", "Ross": "#FFE66D", "Sean": "#845EC2" };
+
+    let columnsHtml = '';
+    columns.forEach(col => {
+        const items = userWishlist
+            .map((item, idx) => ({ ...item, originalIndex: idx }))
+            .filter(item => item.type === col.type)
+            .sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+
+        let itemsHtml = '';
+        if (items.length === 0) {
+            itemsHtml = `<div class="wishlist-empty">No ${col.type}s on your wishlist yet</div>`;
+        } else {
+            items.forEach(item => {
+                const referralColor = item.referredBy ? (USER_COLORS_WL[item.referredBy] || 'var(--accent)') : '';
+                itemsHtml += `
+                    <div class="wishlist-item">
+                        ${item.imageUrl ? `<img src="${item.imageUrl}" alt="" class="wishlist-item-image" />` : ''}
+                        <div class="wishlist-item-info">
+                            <div class="wishlist-item-title">${item.title}</div>
+                            ${item.referredBy ? `<div class="wishlist-item-referral" style="color: ${referralColor};">📌 Referred by ${item.referredBy}</div>` : ''}
+                        </div>
+                        <button class="wishlist-item-remove" onclick="removeFromWishlist(${item.originalIndex})" title="Remove from wishlist">✕</button>
+                    </div>
+                `;
+            });
+        }
+
+        columnsHtml += `
+            <div class="wishlist-column">
+                <div class="wishlist-column-header">
+                    <span class="wishlist-column-icon">${col.icon}</span>
+                    <span class="wishlist-column-title">${col.label}</span>
+                    <span class="wishlist-column-count">${items.length}</span>
+                </div>
+                <div class="wishlist-add-form">
+                    <input type="text" id="wishlist-add-${col.type}" placeholder="Add a ${col.type}..." />
+                    <button onclick="manualWishlistAdd('${col.type}')">+ Add</button>
+                </div>
+                ${itemsHtml}
+            </div>
+        `;
+    });
+
+    mainContent.innerHTML = `
+        <div class="wishlist-page fade-in">
+            <div class="wishlist-page-header">
+                <button class="btn-secondary" style="padding: 0.6rem 1.2rem; font-size: 0.9rem;" onclick="state.viewMode='month'; render();">← Back</button>
+                <div>
+                    <h1 class="wishlist-title">📋 ${currentUser}'s Wishlist</h1>
+                    <p class="wishlist-subtitle">Track what you want to play, watch, and read</p>
+                </div>
+            </div>
+            <div class="wishlist-columns">
+                ${columnsHtml}
+            </div>
+        </div>
+    `;
+}
+
+window.manualWishlistAdd = function(type) {
+    const input = document.getElementById(`wishlist-add-${type}`);
+    if (!input) return;
+    const title = input.value.trim();
+    if (!title) {
+        alert('Please enter a title.');
+        return;
+    }
+    addToWishlist(title, type, null, '');
+    input.value = '';
+    // Re-render to show new item
+    if (state.viewMode === 'wishlist') render();
+};
