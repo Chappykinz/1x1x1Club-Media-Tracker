@@ -535,11 +535,22 @@ function renderMediaItemsForUser(month, user, isEdit) {
             `;
         } else {
             const titleDisplay = displayTitle ? `<strong>${displayTitle}</strong>${extraDisplay}` : `<span style="opacity: 0.3">No ${type} added</span>`;
-            // Wishlist button: show on other users' columns when there's a title
-            const showWishlistBtn = displayTitle && currentUser && currentUser !== user;
-            const wishlistReferrer = month.mode === 'dictator' ? month.dictator : user;
+            // Wishlist button: only on regular months, only on other users' columns, only when there's a title
+            const isRegularMonth = month.mode !== 'dictator';
+            const isOtherUser = currentUser && currentUser !== user;
             const escapedTitle = (displayTitle || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
             const escapedImage = (displayImage || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            // Check if already on current user's wishlist
+            const userWL = (currentUser && state.wishlists[currentUser]) || [];
+            const isOnWishlist = displayTitle && userWL.some(item => item.title.toLowerCase() === displayTitle.toLowerCase() && item.type === type);
+            let wishlistHtml = '';
+            if (displayTitle && isRegularMonth && isOtherUser) {
+                if (isOnWishlist) {
+                    wishlistHtml = `<span class="wishlist-on-badge">✓ On Wishlist</span>`;
+                } else {
+                    wishlistHtml = `<button class="wishlist-add-btn" onclick="addToWishlist('${escapedTitle}', '${type}', '${user}', '${escapedImage}'); render();">📋 + Wishlist</button>`;
+                }
+            }
             output += `
                 <div class="user-item">
                     <div class="media-type">${type.toUpperCase()}</div>
@@ -550,7 +561,7 @@ function renderMediaItemsForUser(month, user, isEdit) {
                                 ${entry.rating ? `<div class="media-rating" style="color: ${getRatingColor(entry.rating)}; align-self: flex-start;">${entry.rating}/10</div>` : ''}
                             </div>
                             ${entry.thoughts ? `<div style="margin-top:0.5rem;"><a class="read-review-link" style="color:var(--accent); cursor:pointer; font-size: 0.9rem; text-decoration:underline;" onclick="showReviewModal(this)" data-image="${displayImage || ''}" data-thoughts="${entry.thoughts.replace(/"/g, '&quot;')}">Read Review</a></div>` : ''}
-                            ${showWishlistBtn ? `<button class="wishlist-add-btn" onclick="addToWishlist('${escapedTitle}', '${type}', '${wishlistReferrer}', '${escapedImage}')">📋 + Wishlist</button>` : ''}
+                            ${wishlistHtml}
                         </div>
                         ${displayImage ? `<img src="${displayImage}" alt="Cover" class="media-thumbnail" style="cursor: zoom-in;" onclick="document.getElementById('image-lightbox-img').src=this.src; document.getElementById('image-lightbox-modal').classList.remove('hidden');" />` : ''}
                     </div>
@@ -2178,7 +2189,7 @@ if (wishlistBtn) {
     });
 }
 
-window.addToWishlist = function(title, type, referredBy, imageUrl) {
+window.addToWishlist = function(title, type, referredBy, imageUrl, extra) {
     if (!currentUser) return;
     const userWishlist = state.wishlists[currentUser] || [];
 
@@ -2189,13 +2200,17 @@ window.addToWishlist = function(title, type, referredBy, imageUrl) {
         return;
     }
 
-    userWishlist.push({
+    const newItem = {
         title: title,
         type: type,
         referredBy: referredBy || null,
         imageUrl: imageUrl || '',
         addedAt: Date.now()
-    });
+    };
+    // Merge extra fields (author, authorGender, platform)
+    if (extra) Object.assign(newItem, extra);
+
+    userWishlist.push(newItem);
 
     state.wishlists[currentUser] = userWishlist;
     db.ref('mediaTrackerState/wishlists/' + currentUser).set(userWishlist);
@@ -2219,6 +2234,93 @@ window.removeFromWishlist = function(index) {
     render();
 };
 
+// --- Schedule Wishlist Item to a Month ---
+window.toggleScheduleDropdown = function(idx) {
+    const el = document.getElementById(`schedule-dropdown-${idx}`);
+    if (!el) return;
+    // Close all other open dropdowns
+    document.querySelectorAll('.wishlist-schedule-dropdown').forEach(d => {
+        if (d.id !== `schedule-dropdown-${idx}`) d.style.display = 'none';
+    });
+    el.style.display = el.style.display === 'block' ? 'none' : 'block';
+};
+
+// Close schedule dropdowns when clicking outside
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.wishlist-schedule-btn') && !e.target.closest('.wishlist-schedule-dropdown')) {
+        document.querySelectorAll('.wishlist-schedule-dropdown').forEach(d => d.style.display = 'none');
+    }
+});
+
+window.scheduleWishlistItem = function(wishlistIndex, monthId) {
+    if (!currentUser) return;
+    const userWishlist = state.wishlists[currentUser] || [];
+    const item = userWishlist[wishlistIndex];
+    if (!item) return;
+
+    const month = state.months.find(m => m.id === monthId);
+    if (!month) return;
+
+    // Determine the type and slot it into the user's entry for that month
+    const type = item.type;
+    if (!month.entries[currentUser]) {
+        month.entries[currentUser] = {};
+        MEDIA_TYPES.forEach(t => {
+            month.entries[currentUser][t] = { title: '', imageUrl: '', rating: '', thoughts: '' };
+        });
+    }
+
+    // For regular months, set the title directly
+    if (month.mode === 'regular') {
+        month.entries[currentUser][type].title = item.title;
+        if (item.imageUrl) month.entries[currentUser][type].imageUrl = item.imageUrl;
+        if (type === 'book') {
+            if (item.author) month.entries[currentUser][type].author = item.author;
+            if (item.authorGender) month.entries[currentUser][type].authorGender = item.authorGender;
+        }
+        if (type === 'game' && item.platform) {
+            month.entries[currentUser][type].platform = item.platform;
+        }
+    } else if (month.mode === 'dictator' && month.dictator === currentUser) {
+        // For dictator months where user is the dictator, set global picks
+        if (!month.globalPicks) month.globalPicks = { game: '', movie: '', book: '' };
+        month.globalPicks[type] = item.title;
+        if (item.imageUrl) month.globalPicks[type + 'Image'] = item.imageUrl;
+        if (type === 'book') {
+            if (item.author) month.globalPicks.bookAuthor = item.author;
+            if (item.authorGender) month.globalPicks.bookAuthorGender = item.authorGender;
+        }
+    }
+
+    // Mark the wishlist item as scheduled
+    item.scheduledFor = month.name;
+    item.scheduledMonthId = monthId;
+
+    state.wishlists[currentUser] = userWishlist;
+    db.ref('mediaTrackerState/wishlists/' + currentUser).set(userWishlist);
+    saveData();
+    render();
+};
+
+function getScheduleableMonths() {
+    if (!currentUser) return [];
+    
+    const now = new Date();
+    const currentSortKey = now.getFullYear() * 100 + (now.getMonth() + 1);
+    
+    const sortedMonths = [...state.months].sort((a, b) => (a.sortKey || 0) - (b.sortKey || 0));
+    return sortedMonths.filter(m => {
+        // Only include current or future months
+        if ((m.sortKey || 0) < currentSortKey) return false;
+        
+        // Include regular months
+        if (m.mode === 'regular') return true;
+        // Include dictator months only if current user is the dictator
+        if (m.mode === 'dictator' && m.dictator === currentUser) return true;
+        return false;
+    });
+}
+
 function renderWishlistPage() {
     if (!currentUser) return;
     const userWishlist = state.wishlists[currentUser] || [];
@@ -2230,6 +2332,7 @@ function renderWishlistPage() {
     ];
 
     const USER_COLORS_WL = { "Andrew": "#FF6B6B", "Tom": "#4ECDC4", "Ross": "#FFE66D", "Sean": "#845EC2" };
+    const scheduleableMonths = getScheduleableMonths();
 
     let columnsHtml = '';
     columns.forEach(col => {
@@ -2244,17 +2347,59 @@ function renderWishlistPage() {
         } else {
             items.forEach(item => {
                 const referralColor = item.referredBy ? (USER_COLORS_WL[item.referredBy] || 'var(--accent)') : '';
+
+                // Schedule dropdown options
+                let scheduleOptions = scheduleableMonths.map(m => {
+                    const isDictatorMonth = m.mode === 'dictator';
+                    return `<button class="wishlist-schedule-dropdown-item" onclick="scheduleWishlistItem(${item.originalIndex}, '${m.id}')">${m.name}${isDictatorMonth ? ' <span class="dictator-tag">(Dictator)</span>' : ''}</button>`;
+                }).join('');
+                if (!scheduleOptions) scheduleOptions = '<div style="padding:0.5rem; color:var(--text-secondary); font-size:0.85rem;">No eligible months</div>';
+
                 itemsHtml += `
-                    <div class="wishlist-item">
+                    <div class="wishlist-item" style="position:relative;">
                         ${item.imageUrl ? `<img src="${item.imageUrl}" alt="" class="wishlist-item-image" />` : ''}
                         <div class="wishlist-item-info">
                             <div class="wishlist-item-title">${item.title}</div>
+                            ${item.author ? `<div style="font-size:0.78rem; color:var(--text-secondary); margin-top:0.1rem;">✍ ${item.author}</div>` : ''}
+                            ${item.platform ? `<div style="font-size:0.78rem; color:var(--text-secondary); margin-top:0.1rem;">🎮 ${item.platform}</div>` : ''}
                             ${item.referredBy ? `<div class="wishlist-item-referral" style="color: ${referralColor};">📌 Referred by ${item.referredBy}</div>` : ''}
+                            ${item.scheduledFor ? `<div class="wishlist-item-scheduled">📅 Scheduled for ${item.scheduledFor}</div>` : ''}
+                        </div>
+                        <button class="wishlist-schedule-btn" onclick="event.stopPropagation(); toggleScheduleDropdown(${item.originalIndex});" title="Schedule to a month">📅</button>
+                        <div id="schedule-dropdown-${item.originalIndex}" class="wishlist-schedule-dropdown" style="display:none;">
+                            <div style="padding:0.3rem 0.5rem; font-size:0.75rem; color:var(--text-secondary); border-bottom:1px solid var(--glass-border); margin-bottom:0.3rem;">Schedule to month:</div>
+                            ${scheduleOptions}
                         </div>
                         <button class="wishlist-item-remove" onclick="removeFromWishlist(${item.originalIndex})" title="Remove from wishlist">✕</button>
                     </div>
                 `;
             });
+        }
+
+        // Rich add form — different fields depending on type
+        let extraFormFields = '';
+        if (col.type === 'book') {
+            extraFormFields = `
+                <input type="text" id="wishlist-add-${col.type}-author" placeholder="Author name" />
+                <select id="wishlist-add-${col.type}-gender">
+                    <option value="">Author Gender?</option>
+                    <option value="M">Male</option>
+                    <option value="F">Female</option>
+                </select>
+            `;
+        } else if (col.type === 'game') {
+            extraFormFields = `
+                <select id="wishlist-add-${col.type}-platform">
+                    <option value="">Played on...</option>
+                    <option value="PC (Keyboard)">PC (Keyboard)</option>
+                    <option value="PC (Controller)">PC (Controller)</option>
+                    <option value="Console - Playstation">Console - Playstation</option>
+                    <option value="Console - Nintendo">Console - Nintendo</option>
+                    <option value="Console - Xbox">Console - Xbox</option>
+                    <option value="Handheld">Handheld</option>
+                    <option value="Multiple">Multiple</option>
+                </select>
+            `;
         }
 
         columnsHtml += `
@@ -2264,9 +2409,18 @@ function renderWishlistPage() {
                     <span class="wishlist-column-title">${col.label}</span>
                     <span class="wishlist-column-count">${items.length}</span>
                 </div>
-                <div class="wishlist-add-form">
-                    <input type="text" id="wishlist-add-${col.type}" placeholder="Add a ${col.type}..." />
-                    <button onclick="manualWishlistAdd('${col.type}')">+ Add</button>
+                <button class="wishlist-toggle-form-btn" onclick="document.getElementById('wishlist-form-${col.type}').classList.toggle('open'); this.classList.toggle('hidden');">+ Add ${col.type.charAt(0).toUpperCase() + col.type.slice(1)}</button>
+                <div id="wishlist-form-${col.type}" class="wishlist-rich-form">
+                    <input type="text" id="wishlist-add-${col.type}" placeholder="${col.type.charAt(0).toUpperCase() + col.type.slice(1)} title..." />
+                    ${extraFormFields}
+                    <div style="display:flex; gap:0.5rem;">
+                        <input type="text" id="wishlist-add-${col.type}-image" placeholder="Cover Image URL (optional)" style="flex:1; border-top-right-radius:0; border-bottom-right-radius:0;" />
+                        <button type="button" class="btn-secondary" style="border-top-left-radius:0; border-bottom-left-radius:0; padding:0 0.8rem; border-color:rgba(255,255,255,0.1); background:rgba(0,0,0,0.2); font-size:0.85rem;" onclick="wishlistFetchImage('${col.type}')" title="Auto-find Image">🔍</button>
+                    </div>
+                    <div class="wishlist-rich-form-actions">
+                        <button class="btn-primary" onclick="manualWishlistAdd('${col.type}')">Add to Wishlist</button>
+                        <button class="btn-secondary" onclick="document.getElementById('wishlist-form-${col.type}').classList.remove('open'); document.querySelector('.wishlist-column:nth-child(${columns.indexOf(col) + 1}) .wishlist-toggle-form-btn').classList.remove('hidden');">Cancel</button>
+                    </div>
                 </div>
                 ${itemsHtml}
             </div>
@@ -2297,8 +2451,112 @@ window.manualWishlistAdd = function(type) {
         alert('Please enter a title.');
         return;
     }
-    addToWishlist(title, type, null, '');
+
+    const imageEl = document.getElementById(`wishlist-add-${type}-image`);
+    const imageUrl = imageEl ? imageEl.value.trim() : '';
+
+    let extra = {};
+    if (type === 'book') {
+        const authorEl = document.getElementById('wishlist-add-book-author');
+        const genderEl = document.getElementById('wishlist-add-book-gender');
+        if (authorEl && authorEl.value.trim()) extra.author = authorEl.value.trim();
+        if (genderEl && genderEl.value) extra.authorGender = genderEl.value;
+    } else if (type === 'game') {
+        const platformEl = document.getElementById('wishlist-add-game-platform');
+        if (platformEl && platformEl.value) extra.platform = platformEl.value;
+    }
+
+    addToWishlist(title, type, null, imageUrl, extra);
+
+    // Clear form
     input.value = '';
+    if (imageEl) imageEl.value = '';
+    if (type === 'book') {
+        const a = document.getElementById('wishlist-add-book-author'); if (a) a.value = '';
+        const g = document.getElementById('wishlist-add-book-gender'); if (g) g.value = '';
+    } else if (type === 'game') {
+        const p = document.getElementById('wishlist-add-game-platform'); if (p) p.value = '';
+    }
+
     // Re-render to show new item
     if (state.viewMode === 'wishlist') render();
+};
+
+// Image fetch for wishlist add form — reuses the same Google/OpenLibrary/iTunes logic
+window.wishlistFetchImage = async function(type) {
+    const titleEl = document.getElementById(`wishlist-add-${type}`);
+    const imageEl = document.getElementById(`wishlist-add-${type}-image`);
+    if (!titleEl || !imageEl) return;
+
+    let title = titleEl.value.trim();
+    if (!title) {
+        alert('Please enter a title first to search for an image.');
+        return;
+    }
+
+    const originalPlaceholder = imageEl.placeholder;
+    imageEl.placeholder = 'Searching for images...';
+
+    let imageUrls = [];
+    let bookQuery = encodeURIComponent(title);
+    if (type === 'book') {
+        const authorEl = document.getElementById('wishlist-add-book-author');
+        if (authorEl && authorEl.value.trim()) {
+            bookQuery += '+' + encodeURIComponent(authorEl.value.trim());
+        }
+    }
+
+    try {
+        // Google Custom Image Search
+        try {
+            const q = type === 'book' ? bookQuery : encodeURIComponent(title + ' ' + type + ' cover');
+            const googleRes = await fetch(`https://www.googleapis.com/customsearch/v1?key=${GOOGLE_SEARCH_KEY}&cx=${GOOGLE_SEARCH_CX}&searchType=image&q=${q}&num=10`);
+            const googleData = await googleRes.json();
+            if (googleData.items) googleData.items.forEach(item => { if (item.link) imageUrls.push(item.link); });
+        } catch (e) { console.warn('Google image search failed.', e); }
+
+        if (type === 'book') {
+            const res = await fetch(`https://openlibrary.org/search.json?q=${bookQuery}&limit=10`);
+            const data = await res.json();
+            if (data.docs) data.docs.forEach(doc => {
+                if (doc.cover_i) imageUrls.push(`https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`);
+            });
+        } else if (type === 'movie') {
+            const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&entity=movie&limit=10`);
+            const data = await res.json();
+            if (data.results) data.results.forEach(r => {
+                if (r.artworkUrl100) imageUrls.push(r.artworkUrl100.replace('100x100bb', '600x600bb'));
+            });
+        } else if (type === 'game') {
+            const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&entity=software&limit=10`);
+            const data = await res.json();
+            if (data.results) data.results.forEach(r => {
+                if (r.artworkUrl512) imageUrls.push(r.artworkUrl512);
+            });
+        }
+    } catch (e) { console.warn('Image fetch error', e); }
+
+    imageEl.placeholder = originalPlaceholder;
+
+    if (imageUrls.length === 0) {
+        alert('No images found. Try a different title or enter a URL manually.');
+        return;
+    }
+
+    // Show image selection modal (reuse the existing one)
+    const grid = document.getElementById('image-select-grid');
+    grid.innerHTML = '';
+    imageUrls.forEach(url => {
+        const img = document.createElement('img');
+        img.src = url;
+        img.style.cssText = 'width:100%; height:120px; object-fit:cover; border-radius:8px; cursor:pointer; border:2px solid transparent; transition:border-color 0.2s;';
+        img.onmouseover = () => img.style.borderColor = 'var(--accent)';
+        img.onmouseout = () => img.style.borderColor = 'transparent';
+        img.onclick = () => {
+            imageEl.value = url;
+            document.getElementById('image-select-modal').classList.add('hidden');
+        };
+        grid.appendChild(img);
+    });
+    document.getElementById('image-select-modal').classList.remove('hidden');
 };

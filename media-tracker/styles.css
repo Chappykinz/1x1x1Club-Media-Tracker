@@ -1059,4 +1059,150 @@ option {
     .wishlist-item-remove {
         opacity: 1;
     }
+}
+
+/* "On Wishlist" badge on month view */
+.wishlist-on-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    background: rgba(46, 160, 67, 0.15);
+    border: 1px solid rgba(46, 160, 67, 0.3);
+    color: #2ea043;
+    white-space: nowrap;
+    margin-top: 0.4rem;
+}
+
+/* Rich add form on wishlist */
+.wishlist-rich-form {
+    display: none;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    border: 1px solid var(--glass-border);
+    margin-bottom: 0.5rem;
+}
+
+.wishlist-rich-form.open {
+    display: flex;
+}
+
+.wishlist-rich-form input,
+.wishlist-rich-form select {
+    padding: 0.55rem 0.7rem;
+    font-size: 0.85rem;
+}
+
+.wishlist-rich-form-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.3rem;
+}
+
+.wishlist-rich-form-actions button {
+    flex: 1;
+    padding: 0.5rem;
+    font-size: 0.85rem;
+    border-radius: 8px;
+}
+
+.wishlist-toggle-form-btn {
+    width: 100%;
+    padding: 0.5rem;
+    font-size: 0.85rem;
+    background: rgba(132, 94, 194, 0.1);
+    border: 1px dashed rgba(132, 94, 194, 0.3);
+    color: var(--accent);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.wishlist-toggle-form-btn:hover {
+    background: rgba(132, 94, 194, 0.2);
+    border-color: rgba(132, 94, 194, 0.5);
+}
+
+/* Schedule dropdown */
+.wishlist-schedule-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 0.3rem 0.5rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    opacity: 0;
+}
+
+.wishlist-item:hover .wishlist-schedule-btn {
+    opacity: 1;
+}
+
+.wishlist-schedule-btn:hover {
+    color: var(--accent);
+    background: rgba(132, 94, 194, 0.1);
+}
+
+.wishlist-schedule-dropdown {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    z-index: 100;
+    background: #161b22;
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    min-width: 220px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 0.5rem;
+    margin-top: 0.3rem;
+}
+
+.wishlist-schedule-dropdown-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.5rem 0.8rem;
+    font-size: 0.85rem;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.wishlist-schedule-dropdown-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.wishlist-schedule-dropdown-item .dictator-tag {
+    font-size: 0.7rem;
+    color: var(--accent);
+    margin-left: 0.3rem;
+}
+
+/* Scheduled status on wishlist */
+.wishlist-item-scheduled {
+    font-size: 0.75rem;
+    color: #4ecdc4;
+    margin-top: 0.15rem;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+@media (max-width: 768px) {
+    .wishlist-schedule-btn {
+        opacity: 1;
+    }
 }
