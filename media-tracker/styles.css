@@ -1,3 +1,4 @@
+/* === DARK MODE (default) === */
 :root {
     --bg-color: #0d1117;
     --text-primary: #e6edf3;
@@ -10,7 +11,95 @@
     --success: #2ea043;
     --font-heading: 'Outfit', sans-serif;
     --font-body: 'Inter', sans-serif;
+    /* Extra semantic vars */
+    --card-bg: rgba(22, 27, 34, 0.4);
+    --input-bg: rgba(0, 0, 0, 0.2);
+    --dropdown-bg: #161b22;
+    --shadow-color: rgba(0, 0, 0, 0.4);
+    --body-gradient-1: rgba(132, 94, 194, 0.08);
+    --body-gradient-2: rgba(255, 107, 107, 0.08);
+    --media-item-bg: rgba(0, 0, 0, 0.2);
+    --card-header-border: rgba(255, 255, 255, 0.05);
+    --modal-overlay: rgba(0, 0, 0, 0.7);
+    --toggle-mode-label: '🌙';
 }
+
+/* === LIGHT MODE override (manual toggle) === */
+body.light-mode {
+    --bg-color: #f0f2f5;
+    --text-primary: #1a1a2e;
+    --text-secondary: #5a6380;
+    --glass-bg: rgba(255, 255, 255, 0.75);
+    --glass-border: rgba(0, 0, 0, 0.1);
+    --card-hover: rgba(132, 94, 194, 0.08);
+    --success: #2ea043;
+    --card-bg: rgba(255, 255, 255, 0.6);
+    --input-bg: rgba(255, 255, 255, 0.8);
+    --dropdown-bg: #ffffff;
+    --shadow-color: rgba(0, 0, 0, 0.15);
+    --body-gradient-1: rgba(132, 94, 194, 0.05);
+    --body-gradient-2: rgba(255, 107, 107, 0.05);
+    --media-item-bg: rgba(0, 0, 0, 0.04);
+    --card-header-border: rgba(0, 0, 0, 0.06);
+    --modal-overlay: rgba(0, 0, 0, 0.5);
+    --toggle-mode-label: '☀️';
+}
+
+/* === SYSTEM preference: light by default if user hasn't toggled === */
+@media (prefers-color-scheme: light) {
+    :root {
+        --bg-color: #f0f2f5;
+        --text-primary: #1a1a2e;
+        --text-secondary: #5a6380;
+        --glass-bg: rgba(255, 255, 255, 0.75);
+        --glass-border: rgba(0, 0, 0, 0.1);
+        --card-hover: rgba(132, 94, 194, 0.08);
+        --card-bg: rgba(255, 255, 255, 0.6);
+        --input-bg: rgba(255, 255, 255, 0.8);
+        --dropdown-bg: #ffffff;
+        --shadow-color: rgba(0, 0, 0, 0.15);
+        --body-gradient-1: rgba(132, 94, 194, 0.05);
+        --body-gradient-2: rgba(255, 107, 107, 0.05);
+        --media-item-bg: rgba(0, 0, 0, 0.04);
+        --card-header-border: rgba(0, 0, 0, 0.06);
+        --modal-overlay: rgba(0, 0, 0, 0.5);
+    }
+}
+
+/* System dark (only needed to re-apply dark for users overriding light back to dark) */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --card-bg: rgba(22, 27, 34, 0.4);
+        --input-bg: rgba(0, 0, 0, 0.2);
+        --dropdown-bg: #161b22;
+        --shadow-color: rgba(0, 0, 0, 0.4);
+        --body-gradient-1: rgba(132, 94, 194, 0.08);
+        --body-gradient-2: rgba(255, 107, 107, 0.08);
+        --media-item-bg: rgba(0, 0, 0, 0.2);
+        --card-header-border: rgba(255, 255, 255, 0.05);
+        --modal-overlay: rgba(0, 0, 0, 0.7);
+    }
+}
+
+/* Force dark mode via class when user manually selects dark */
+body.dark-mode {
+    --bg-color: #0d1117;
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
+    --glass-bg: rgba(22, 27, 34, 0.65);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --card-hover: rgba(132, 94, 194, 0.15);
+    --card-bg: rgba(22, 27, 34, 0.4);
+    --input-bg: rgba(0, 0, 0, 0.2);
+    --dropdown-bg: #161b22;
+    --shadow-color: rgba(0, 0, 0, 0.4);
+    --body-gradient-1: rgba(132, 94, 194, 0.08);
+    --body-gradient-2: rgba(255, 107, 107, 0.08);
+    --media-item-bg: rgba(0, 0, 0, 0.2);
+    --card-header-border: rgba(255, 255, 255, 0.05);
+    --modal-overlay: rgba(0, 0, 0, 0.7);
+}
+
 
 * {
     box-sizing: border-box;
@@ -28,8 +117,8 @@ body {
     color: var(--text-primary);
     min-height: 100vh;
     background-image:
-        radial-gradient(circle at 15% 50%, rgba(132, 94, 194, 0.08) 0%, transparent 50%),
-        radial-gradient(circle at 85% 30%, rgba(255, 107, 107, 0.08) 0%, transparent 50%);
+        radial-gradient(circle at 15% 50%, var(--body-gradient-1) 0%, transparent 50%),
+        radial-gradient(circle at 85% 30%, var(--body-gradient-2) 0%, transparent 50%);
     line-height: 1.6;
     overflow-x: hidden;
     width: 100%;
@@ -167,7 +256,7 @@ button {
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(0, 0, 0, 0.7);
+    background: var(--modal-overlay);
     backdrop-filter: blur(5px);
     display: flex;
     justify-content: center;
@@ -210,7 +299,7 @@ input,
 select,
 textarea {
     width: 100%;
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--input-bg);
     border: 1px solid var(--glass-border);
     color: var(--text-primary);
     padding: 0.8rem;
@@ -266,7 +355,7 @@ option {
 }
 
 .user-card {
-    background: rgba(22, 27, 34, 0.4);
+    background: var(--card-bg);
     border-radius: 12px;
     border: 1px solid var(--glass-border);
     padding: 1.5rem;
@@ -278,7 +367,7 @@ option {
 
 .user-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 10px 25px var(--shadow-color);
     border-color: rgba(132, 94, 194, 0.3);
 }
 
@@ -286,7 +375,7 @@ option {
     display: flex;
     align-items: center;
     gap: 1rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--card-header-border);
     padding-bottom: 1rem;
 }
 
@@ -322,7 +411,7 @@ option {
 }
 
 .media-item {
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--media-item-bg);
     border-radius: 8px;
     padding: 1rem;
     position: relative;
@@ -410,7 +499,7 @@ option {
 
 .dropdown-content {
     position: absolute;
-    background-color: #161b22;
+    background-color: var(--dropdown-bg);
     /* Solid background instead of glass-bg */
     min-width: 200px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);

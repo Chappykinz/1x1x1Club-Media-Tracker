@@ -131,6 +131,29 @@ const dictatorGroup = document.getElementById('dictator-select-group');
 const mainContent = document.getElementById('main-content');
 const statsBtn = document.getElementById('stats-btn');
 
+// --- Theme Toggle ---
+(function initTheme() {
+    const saved = localStorage.getItem('colorTheme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    // Determine effective theme: saved preference wins; otherwise use system
+    const isDark = saved ? saved === 'dark' : prefersDark;
+    document.body.classList.toggle('dark-mode', isDark);
+    document.body.classList.toggle('light-mode', !isDark);
+    const btn = document.getElementById('theme-toggle-btn');
+    if (btn) btn.textContent = isDark ? '☀️' : '🌙';
+})();
+
+const themeToggleBtn = document.getElementById('theme-toggle-btn');
+if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', () => {
+        const isCurrentlyDark = document.body.classList.contains('dark-mode');
+        document.body.classList.toggle('dark-mode', !isCurrentlyDark);
+        document.body.classList.toggle('light-mode', isCurrentlyDark);
+        themeToggleBtn.textContent = isCurrentlyDark ? '🌙' : '☀️';
+        localStorage.setItem('colorTheme', isCurrentlyDark ? 'light' : 'dark');
+    });
+}
+
 // --- Event Listeners ---
 if (adminDropdownBtn) {
     adminDropdownBtn.addEventListener('click', (e) => {
