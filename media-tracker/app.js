@@ -28,6 +28,12 @@ if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 const db = firebase.database();
+const auth = firebase.auth();
+
+// Silent anonymous sign-in to satisfy security rules
+auth.signInAnonymously().catch((error) => {
+    console.error("Firebase Anonymous Auth failed:", error);
+});
 
 // --- Data Management ---
 let state = {
