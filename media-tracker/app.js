@@ -614,6 +614,7 @@ function renderMediaItemsForUser(month, user, isEdit) {
                         <select class="also-consumed-type" style="padding: 0.4rem; border-radius: 4px; border: 1px solid var(--glass-border); background: var(--input-bg); color: var(--text-primary); flex: 1;">
                             <option value="book" ${item.type === 'book' ? 'selected' : ''}>📕 Book</option>
                             <option value="movie" ${item.type === 'movie' ? 'selected' : ''}>🎬 Movie</option>
+                            <option value="tv" ${item.type === 'tv' ? 'selected' : ''}>📺 TV Show</option>
                             <option value="game" ${item.type === 'game' ? 'selected' : ''}>🎮 Game</option>
                         </select>
                         <input type="number" class="also-consumed-rating" value="${item.rating || ''}" placeholder="Score" min="1" max="10" step="0.5" style="width: 70px; padding: 0.4rem; font-size: 0.9rem;" />
@@ -631,7 +632,7 @@ function renderMediaItemsForUser(month, user, isEdit) {
         } else {
             alsoConsumed.forEach(item => {
                 const escapedTitle = (item.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                const icon = item.type === 'book' ? '📕' : item.type === 'movie' ? '🎬' : item.type === 'game' ? '🎮' : '➖';
+                const icon = item.type === 'book' ? '📕' : item.type === 'movie' ? '🎬' : item.type === 'tv' ? '📺' : item.type === 'game' ? '🎮' : '➖';
                 output += `
                     <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem;">
                         <div style="display: flex; align-items: center; gap: 0.5rem; overflow: hidden;">
@@ -742,6 +743,7 @@ window.addAlsoConsumed = function(user) {
                 <select class="also-consumed-type" style="padding: 0.4rem; border-radius: 4px; border: 1px solid var(--glass-border); background: var(--input-bg); color: var(--text-primary); flex: 1;">
                     <option value="book">📕 Book</option>
                     <option value="movie">🎬 Movie</option>
+                    <option value="tv">📺 TV Show</option>
                     <option value="game">🎮 Game</option>
                 </select>
                 <input type="number" class="also-consumed-rating" placeholder="Score" min="1" max="10" step="0.5" style="width: 70px; padding: 0.4rem; font-size: 0.9rem;" />
