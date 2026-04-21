@@ -599,6 +599,51 @@ function renderMediaItemsForUser(month, user, isEdit) {
         }
     });
 
+    const alsoConsumed = userEntries.alsoConsumed || [];
+    output += `<hr class="crease-line" style="border: 0; border-top: 1px dashed var(--glass-border); margin: 1rem 0;" />`;
+    output += `<div style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 0.5rem;">Also consumed:</div>`;
+
+    if (isEdit) {
+        output += `<div id="also-consumed-edit-list-${user}" style="display: flex; flex-direction: column; gap: 0.5rem;">`;
+        alsoConsumed.forEach((item) => {
+            const escapedTitle = (item.title || '').replace(/"/g, '&quot;');
+            output += `
+                <div class="also-consumed-item-edit" style="display: flex; gap: 0.5rem; align-items: center; background: var(--input-bg); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--glass-border);">
+                    <select class="also-consumed-type" style="padding: 0.3rem; border-radius: 4px; border: 1px solid var(--glass-border); background: var(--input-bg); color: var(--text-primary);">
+                        <option value="book" ${item.type === 'book' ? 'selected' : ''}>📕</option>
+                        <option value="movie" ${item.type === 'movie' ? 'selected' : ''}>🎬</option>
+                        <option value="game" ${item.type === 'game' ? 'selected' : ''}>🎮</option>
+                    </select>
+                    <input type="text" class="also-consumed-title" value="${escapedTitle}" placeholder="Title" style="flex: 1; padding: 0.3rem; font-size: 0.9rem; min-width: 0;" />
+                    <input type="number" class="also-consumed-rating" value="${item.rating || ''}" placeholder="Score (Optional)" min="1" max="10" step="0.5" style="width: 80px; padding: 0.3rem; font-size: 0.9rem;" />
+                    <button type="button" class="btn-secondary" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; border-color: #F44336; color: #F44336;" onclick="this.parentElement.remove()">✕</button>
+                </div>
+            `;
+        });
+        output += `</div>`;
+        output += `<button type="button" class="btn-secondary" style="margin-top: 0.5rem; padding: 0.3rem 0.6rem; font-size: 0.8rem; width: 100%; border: 1px dashed var(--glass-border);" onclick="addAlsoConsumed('${user}')">+ Add Item</button>`;
+    } else {
+        output += `<div style="display: flex; flex-direction: column; gap: 0.3rem;">`;
+        if (alsoConsumed.length === 0) {
+            output += `<span style="font-size: 0.85rem; opacity: 0.3;">Nothing else listed</span>`;
+        } else {
+            alsoConsumed.forEach(item => {
+                const escapedTitle = (item.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                const icon = item.type === 'book' ? '📕' : item.type === 'movie' ? '🎬' : item.type === 'game' ? '🎮' : '➖';
+                output += `
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; overflow: hidden;">
+                            <span style="font-size: 1rem;">${icon}</span>
+                            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapedTitle}">${escapedTitle}</span>
+                        </div>
+                        ${item.rating ? `<span style="color: ${getRatingColor(item.rating)}; font-weight: 600; padding-left: 0.5rem; flex-shrink: 0;">${item.rating}/10</span>` : ''}
+                    </div>
+                `;
+            });
+        }
+        output += `</div>`;
+    }
+
     if (isEdit) {
         output += `
             <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
@@ -665,8 +710,42 @@ window.saveEdit = function (user) {
         }
     });
 
+    const listEl = document.getElementById(`also-consumed-edit-list-${user}`);
+    const alsoConsumed = [];
+    if (listEl) {
+        const itemEls = listEl.querySelectorAll('.also-consumed-item-edit');
+        itemEls.forEach((el) => {
+            const type = el.querySelector('.also-consumed-type').value;
+            const title = el.querySelector('.also-consumed-title').value.trim();
+            const rating = el.querySelector('.also-consumed-rating').value;
+            if (title) {
+                alsoConsumed.push({ type, title, rating });
+            }
+        });
+    }
+    month.entries[user].alsoConsumed = alsoConsumed;
+
     saveData();
     render();
+};
+
+window.addAlsoConsumed = function(user) {
+    const listEl = document.getElementById(`also-consumed-edit-list-${user}`);
+    if (!listEl) return;
+    
+    const itemHtml = `
+        <div class="also-consumed-item-edit" style="display: flex; gap: 0.5rem; align-items: center; background: var(--input-bg); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--glass-border);">
+            <select class="also-consumed-type" style="padding: 0.3rem; border-radius: 4px; border: 1px solid var(--glass-border); background: var(--input-bg); color: var(--text-primary);">
+                <option value="book">📕</option>
+                <option value="movie">🎬</option>
+                <option value="game">🎮</option>
+            </select>
+            <input type="text" class="also-consumed-title" placeholder="Title" style="flex: 1; padding: 0.3rem; font-size: 0.9rem; min-width: 0;" />
+            <input type="number" class="also-consumed-rating" placeholder="Score (Optional)" min="1" max="10" step="0.5" style="width: 80px; padding: 0.3rem; font-size: 0.9rem;" />
+            <button type="button" class="btn-secondary" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; border-color: #F44336; color: #F44336;" onclick="this.parentElement.remove()">✕</button>
+        </div>
+    `;
+    listEl.insertAdjacentHTML('beforeend', itemHtml);
 };
 
 window.showGlobalPicksModal = function () {
