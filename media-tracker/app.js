@@ -608,15 +608,17 @@ function renderMediaItemsForUser(month, user, isEdit) {
         alsoConsumed.forEach((item) => {
             const escapedTitle = (item.title || '').replace(/"/g, '&quot;');
             output += `
-                <div class="also-consumed-item-edit" style="display: flex; gap: 0.5rem; align-items: center; background: var(--input-bg); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--glass-border);">
-                    <select class="also-consumed-type" style="padding: 0.3rem; border-radius: 4px; border: 1px solid var(--glass-border); background: var(--input-bg); color: var(--text-primary);">
-                        <option value="book" ${item.type === 'book' ? 'selected' : ''}>📕</option>
-                        <option value="movie" ${item.type === 'movie' ? 'selected' : ''}>🎬</option>
-                        <option value="game" ${item.type === 'game' ? 'selected' : ''}>🎮</option>
-                    </select>
-                    <input type="text" class="also-consumed-title" value="${escapedTitle}" placeholder="Title" style="flex: 1; padding: 0.3rem; font-size: 0.9rem; min-width: 0;" />
-                    <input type="number" class="also-consumed-rating" value="${item.rating || ''}" placeholder="Score (Optional)" min="1" max="10" step="0.5" style="width: 80px; padding: 0.3rem; font-size: 0.9rem;" />
-                    <button type="button" class="btn-secondary" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; border-color: #F44336; color: #F44336;" onclick="this.parentElement.remove()">✕</button>
+                <div class="also-consumed-item-edit" style="display: flex; flex-direction: column; gap: 0.5rem; background: var(--input-bg); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--glass-border);">
+                    <input type="text" class="also-consumed-title" value="${escapedTitle}" placeholder="Title" style="width: 100%; padding: 0.4rem; font-size: 0.9rem;" />
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <select class="also-consumed-type" style="padding: 0.4rem; border-radius: 4px; border: 1px solid var(--glass-border); background: var(--input-bg); color: var(--text-primary); flex: 1;">
+                            <option value="book" ${item.type === 'book' ? 'selected' : ''}>📕 Book</option>
+                            <option value="movie" ${item.type === 'movie' ? 'selected' : ''}>🎬 Movie</option>
+                            <option value="game" ${item.type === 'game' ? 'selected' : ''}>🎮 Game</option>
+                        </select>
+                        <input type="number" class="also-consumed-rating" value="${item.rating || ''}" placeholder="Score" min="1" max="10" step="0.5" style="width: 70px; padding: 0.4rem; font-size: 0.9rem;" />
+                        <button type="button" class="btn-secondary" style="padding: 0.4rem 0.6rem; font-size: 0.8rem; border-color: #F44336; color: #F44336;" onclick="this.closest('.also-consumed-item-edit').remove()" title="Remove">✕</button>
+                    </div>
                 </div>
             `;
         });
@@ -734,15 +736,17 @@ window.addAlsoConsumed = function(user) {
     if (!listEl) return;
     
     const itemHtml = `
-        <div class="also-consumed-item-edit" style="display: flex; gap: 0.5rem; align-items: center; background: var(--input-bg); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--glass-border);">
-            <select class="also-consumed-type" style="padding: 0.3rem; border-radius: 4px; border: 1px solid var(--glass-border); background: var(--input-bg); color: var(--text-primary);">
-                <option value="book">📕</option>
-                <option value="movie">🎬</option>
-                <option value="game">🎮</option>
-            </select>
-            <input type="text" class="also-consumed-title" placeholder="Title" style="flex: 1; padding: 0.3rem; font-size: 0.9rem; min-width: 0;" />
-            <input type="number" class="also-consumed-rating" placeholder="Score (Optional)" min="1" max="10" step="0.5" style="width: 80px; padding: 0.3rem; font-size: 0.9rem;" />
-            <button type="button" class="btn-secondary" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; border-color: #F44336; color: #F44336;" onclick="this.parentElement.remove()">✕</button>
+        <div class="also-consumed-item-edit" style="display: flex; flex-direction: column; gap: 0.5rem; background: var(--input-bg); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--glass-border);">
+            <input type="text" class="also-consumed-title" placeholder="Title" style="width: 100%; padding: 0.4rem; font-size: 0.9rem;" />
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <select class="also-consumed-type" style="padding: 0.4rem; border-radius: 4px; border: 1px solid var(--glass-border); background: var(--input-bg); color: var(--text-primary); flex: 1;">
+                    <option value="book">📕 Book</option>
+                    <option value="movie">🎬 Movie</option>
+                    <option value="game">🎮 Game</option>
+                </select>
+                <input type="number" class="also-consumed-rating" placeholder="Score" min="1" max="10" step="0.5" style="width: 70px; padding: 0.4rem; font-size: 0.9rem;" />
+                <button type="button" class="btn-secondary" style="padding: 0.4rem 0.6rem; font-size: 0.8rem; border-color: #F44336; color: #F44336;" onclick="this.closest('.also-consumed-item-edit').remove()" title="Remove">✕</button>
+            </div>
         </div>
     `;
     listEl.insertAdjacentHTML('beforeend', itemHtml);
