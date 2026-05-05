@@ -93,6 +93,9 @@ async function loadData() {
             }
             render();
         }
+    }, (error) => {
+        console.error("Firebase Months Read Error:", error);
+        alert("Error loading data from Firebase: " + error.message + "\n\nThis usually means the Database Rules are blocking access.");
     });
 
     // Load wishlists from Firebase
@@ -103,6 +106,8 @@ async function loadData() {
         if (state.viewMode === 'wishlist') {
             render();
         }
+    }, (error) => {
+        console.error("Firebase Wishlist Read Error:", error);
     });
 }
 
