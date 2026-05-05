@@ -30,9 +30,13 @@ if (!firebase.apps.length) {
 const db = firebase.database();
 const auth = firebase.auth();
 
-// Silent anonymous sign-in to satisfy security rules
-auth.signInAnonymously().catch((error) => {
-    console.error("Firebase Anonymous Auth failed:", error);
+// Listen for Auth State changes
+let isDataLoaded = false;
+auth.onAuthStateChanged((user) => {
+    if (user && !isDataLoaded) {
+        isDataLoaded = true;
+        loadData();
+    }
 });
 
 // --- Data Management ---
@@ -1525,28 +1529,38 @@ window.attemptLogin = function () {
         return;
     }
 
-    if (pwdInp !== 'LPP') {
-        alert('Incorrect password!');
+    if (!pwdInp) {
+        alert('Please enter your password.');
         return;
     }
 
-    currentUser = formattedUser;
+    const email = formattedUser.toLowerCase() + '@1x1x1club.com';
 
-    document.getElementById('login-username').value = '';
-    document.getElementById('login-password').value = '';
+    auth.signInWithEmailAndPassword(email, pwdInp)
+        .then(() => {
+            currentUser = formattedUser;
+            document.getElementById('login-username').value = '';
+            document.getElementById('login-password').value = '';
 
-    localStorage.setItem('mediaTrackerUser', currentUser);
-    loginOverlay.style.display = 'none';
-    appContainer.style.display = 'block';
-    headerUsernameLabel.textContent = `User: ${currentUser}`;
-    render();
+            localStorage.setItem('mediaTrackerUser', currentUser);
+            loginOverlay.style.display = 'none';
+            appContainer.style.display = 'block';
+            headerUsernameLabel.textContent = `User: ${currentUser}`;
+            render();
+        })
+        .catch((error) => {
+            console.error("Login Error:", error);
+            alert('Incorrect password or account not set up in Firebase yet.');
+        });
 };
 
 logoutBtn.addEventListener('click', () => {
-    currentUser = null;
-    localStorage.removeItem('mediaTrackerUser');
-    appContainer.style.display = 'none';
-    loginOverlay.style.display = 'flex';
+    auth.signOut().then(() => {
+        currentUser = null;
+        localStorage.removeItem('mediaTrackerUser');
+        appContainer.style.display = 'none';
+        loginOverlay.style.display = 'flex';
+    }).catch(error => console.error("Logout Error:", error));
 });
 
 if (currentUser) {
@@ -1555,8 +1569,7 @@ if (currentUser) {
     headerUsernameLabel.textContent = `User: ${currentUser}`;
 }
 
-// Initial load
-loadData();
+// Initial load triggered by onAuthStateChanged
 
 // --- Scroll Behavior ---
 let lastScrollY = window.scrollY;
