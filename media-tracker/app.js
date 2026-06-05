@@ -541,7 +541,7 @@ function renderMediaItemsForUser(month, user, isEdit) {
             if (entry.author) extraDisplay = `<div style="font-size:0.85rem; color:${authorColor}; margin-top:0.2rem;">✍ ${entry.author}</div>`;
         } else if (type === 'game') {
             extraFields = `
-                <select id="edit-${user}-game-platform" style="margin-top: 0.5rem; width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: white;">
+                <select id="edit-${user}-game-platform" style="margin-top: 0.5rem;">
                     <option value="" ${!entry.platform ? 'selected' : ''}>Played on...</option>
                     <option value="PC (Keyboard)" ${entry.platform === 'PC (Keyboard)' ? 'selected' : ''}>PC (Keyboard)</option>
                     <option value="PC (Controller)" ${entry.platform === 'PC (Controller)' ? 'selected' : ''}>PC (Controller)</option>
@@ -565,7 +565,7 @@ function renderMediaItemsForUser(month, user, isEdit) {
                     ${extraFields}
                     <div style="display: flex; margin-top: 0.5rem;">
                         <input type="text" id="edit-${user}-${type}-image" value="${displayImage || ''}" placeholder="Cover Image URL (Optional)" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0;" />
-                        <button type="button" class="btn-secondary" style="border-top-left-radius: 0; border-bottom-left-radius: 0; padding: 0 1rem; border-color: rgba(255,255,255,0.1); background: rgba(0,0,0,0.2);" onclick="autoFetchImage('${user}', '${type}', ${isDictatorMode})" title="Auto-find Image based on Title">🔍 Fetch</button>
+                        <button type="button" class="btn-secondary input-group-btn" onclick="autoFetchImage('${user}', '${type}', ${isDictatorMode})" title="Auto-find Image based on Title">🔍 Fetch</button>
                     </div>
                     <input type="number" id="edit-${user}-${type}-rating" value="${entry.rating || ''}" placeholder="Rating (1-10)" min="1" max="10" step="0.5" style="margin-top: 0.5rem;" />
                     <textarea id="edit-${user}-${type}-thoughts" placeholder="Your thoughts..." rows="3" style="margin-top: 0.5rem;">${entry.thoughts || ''}</textarea>
@@ -776,7 +776,7 @@ window.showGlobalPicksModal = function () {
                 <input type="text" id="global-game-title" value="${month.globalPicks.game || ''}" placeholder="Game Title..." />
                 <div style="display: flex; margin-top: 0.5rem;">
                     <input type="text" id="global-game-image" value="${month.globalPicks.gameImage || ''}" placeholder="Cover Image URL (Optional)" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0;" />
-                    <button type="button" class="btn-secondary" style="border-top-left-radius: 0; border-bottom-left-radius: 0; padding: 0 1rem; border-color: rgba(255,255,255,0.1); background: rgba(0,0,0,0.2);" onclick="autoFetchGlobalImage('game')" title="Auto-find Image based on Title">🔍 Fetch</button>
+                    <button type="button" class="btn-secondary input-group-btn" onclick="autoFetchGlobalImage('game')" title="Auto-find Image based on Title">🔍 Fetch</button>
                 </div>
             </div>
             <div class="form-group">
@@ -784,7 +784,7 @@ window.showGlobalPicksModal = function () {
                 <input type="text" id="global-movie-title" value="${month.globalPicks.movie || ''}" placeholder="Movie Title..." />
                 <div style="display: flex; margin-top: 0.5rem;">
                     <input type="text" id="global-movie-image" value="${month.globalPicks.movieImage || ''}" placeholder="Cover Image URL (Optional)" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0;" />
-                    <button type="button" class="btn-secondary" style="border-top-left-radius: 0; border-bottom-left-radius: 0; padding: 0 1rem; border-color: rgba(255,255,255,0.1); background: rgba(0,0,0,0.2);" onclick="autoFetchGlobalImage('movie')" title="Auto-find Image based on Title">🔍 Fetch</button>
+                    <button type="button" class="btn-secondary input-group-btn" onclick="autoFetchGlobalImage('movie')" title="Auto-find Image based on Title">🔍 Fetch</button>
                 </div>
             </div>
             <div class="form-group">
@@ -798,7 +798,7 @@ window.showGlobalPicksModal = function () {
                 </select>
                 <div style="display: flex; margin-top: 0.5rem;">
                     <input type="text" id="global-book-image" value="${month.globalPicks.bookImage || ''}" placeholder="Cover Image URL (Optional)" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0;" />
-                    <button type="button" class="btn-secondary" style="border-top-left-radius: 0; border-bottom-left-radius: 0; padding: 0 1rem; border-color: rgba(255,255,255,0.1); background: rgba(0,0,0,0.2);" onclick="autoFetchGlobalImage('book')" title="Auto-find Image based on Title">🔍 Fetch</button>
+                    <button type="button" class="btn-secondary input-group-btn" onclick="autoFetchGlobalImage('book')" title="Auto-find Image based on Title">🔍 Fetch</button>
                 </div>
             </div>
             <div class="modal-actions">
@@ -2547,7 +2547,7 @@ function renderWishlistPage() {
                     ${extraFormFields}
                     <div style="display:flex; gap:0.5rem;">
                         <input type="text" id="wishlist-add-${col.type}-image" placeholder="Cover Image URL (optional)" style="flex:1; border-top-right-radius:0; border-bottom-right-radius:0;" />
-                        <button type="button" class="btn-secondary" style="border-top-left-radius:0; border-bottom-left-radius:0; padding:0 0.8rem; border-color:rgba(255,255,255,0.1); background:rgba(0,0,0,0.2); font-size:0.85rem;" onclick="wishlistFetchImage('${col.type}')" title="Auto-find Image">🔍</button>
+                        <button type="button" class="btn-secondary input-group-btn" style="font-size:0.85rem;" onclick="wishlistFetchImage('${col.type}')" title="Auto-find Image">🔍</button>
                     </div>
                     <div class="wishlist-rich-form-actions">
                         <button class="btn-primary" onclick="manualWishlistAdd('${col.type}')">Add to Wishlist</button>
