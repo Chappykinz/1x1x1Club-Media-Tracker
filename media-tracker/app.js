@@ -960,7 +960,49 @@ function getAllRatings() {
     return ratings;
 }
 
-window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL', avgPersonFilter = 'ALL', avgMediaFilter = 'ALL', dictatorMediaFilter = 'ALL', histPersonFilter = null, histMediaFilter = null, highLowYearFilter = 'ALL', histYearFilter = 'ALL', dictatorYearFilter = 'ALL', genderPersonFilter = 'ALL') {
+function isSimilarTitle(titleA, titleB) {
+    if (!titleA || !titleB) return false;
+    
+    const clean = (t) => {
+        return t.toLowerCase()
+            .replace(/^(the|a|an)\s+/i, '')
+            .replace(/[^\w\s]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    };
+    
+    const normA = clean(titleA);
+    const normB = clean(titleB);
+    
+    if (normA === normB) return true;
+    
+    const getWords = (s) => {
+        const stops = new Set(['and', 'or', 'of', 'in', 'to', 'for', 'the', 'a', 'an']);
+        return s.split(' ').filter(w => w.length > 0 && !stops.has(w));
+    };
+    
+    const wordsA = getWords(normA);
+    const wordsB = getWords(normB);
+    
+    if (wordsA.length === 0 || wordsB.length === 0) return false;
+    
+    const setA = new Set(wordsA);
+    const setB = new Set(wordsB);
+    
+    if (setA.size === setB.size) {
+        let allMatch = true;
+        for (let w of setA) {
+            if (!setB.has(w)) {
+                allMatch = false;
+                break;
+            }
+        }
+        if (allMatch) return true;
+    }
+    return false;
+}
+
+window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL', avgPersonFilter = 'ALL', avgMediaFilter = 'ALL', dictatorMediaFilter = 'ALL', histPersonFilter = null, histMediaFilter = null, highLowYearFilter = 'ALL', histYearFilter = 'ALL', dictatorYearFilter = 'ALL', genderPersonFilter = 'ALL', highLowMultiFilter = false) {
     const ratings = getAllRatings();
 
     if (histPersonFilter) window.histogramPersonFilter = histPersonFilter;
@@ -968,22 +1010,77 @@ window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL',
     if (histYearFilter) window.histogramYearFilter = histYearFilter;
 
     // Filters for High/Low
-    let highLowRatings = ratings;
-    if (personFilter !== 'ALL') {
-        highLowRatings = highLowRatings.filter(r => r.user === personFilter);
-    }
-    if (highLowMediaFilter !== 'ALL') {
-        highLowRatings = highLowRatings.filter(r => r.type === highLowMediaFilter);
-    }
-    if (highLowYearFilter !== 'ALL') {
-        highLowRatings = highLowRatings.filter(r => r.year === highLowYearFilter);
-    }
+    let top5Highest = [];
+    let top5Lowest = [];
 
-    // Sort into top 5
-    const sortedDesc = [...highLowRatings].sort((a, b) => b.rating - a.rating);
-    const sortedAsc = [...highLowRatings].sort((a, b) => a.rating - b.rating);
-    const top5Highest = sortedDesc.slice(0, 5);
-    const top5Lowest = sortedAsc.slice(0, 5);
+    if (highLowMultiFilter) {
+        // Group by item first (across the filtered year and media type raw ratings)
+        let rawFiltered = ratings;
+        if (highLowMediaFilter !== 'ALL') {
+            rawFiltered = rawFiltered.filter(r => r.type === highLowMediaFilter);
+        }
+        if (highLowYearFilter !== 'ALL') {
+            rawFiltered = rawFiltered.filter(r => r.year === highLowYearFilter);
+        }
+
+        const grouped = [];
+        rawFiltered.forEach(r => {
+            let match = grouped.find(g => g.type === r.type && isSimilarTitle(g.title, r.title));
+            if (!match) {
+                match = {
+                    title: r.title,
+                    type: r.type,
+                    ratingsList: [],
+                    users: new Set(),
+                    months: new Set()
+                };
+                grouped.push(match);
+            }
+            match.ratingsList.push(r.rating);
+            match.users.add(r.user);
+            match.months.add(r.monthName);
+        });
+
+        let aggregatedItems = grouped
+            .map(item => {
+                const sum = item.ratingsList.reduce((a, b) => a + b, 0);
+                const avg = parseFloat((sum / item.ratingsList.length).toFixed(2));
+                return {
+                    title: item.title,
+                    type: item.type,
+                    rating: avg,
+                    users: Array.from(item.users),
+                    months: Array.from(item.months),
+                    reviewCount: item.ratingsList.length
+                };
+            })
+            .filter(item => item.reviewCount >= 2);
+
+        if (personFilter !== 'ALL') {
+            aggregatedItems = aggregatedItems.filter(item => item.users.includes(personFilter));
+        }
+
+        const sortedDesc = [...aggregatedItems].sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount);
+        const sortedAsc = [...aggregatedItems].sort((a, b) => a.rating - b.rating || b.reviewCount - a.reviewCount);
+        top5Highest = sortedDesc.slice(0, 5);
+        top5Lowest = sortedAsc.slice(0, 5);
+    } else {
+        let highLowRatings = ratings;
+        if (personFilter !== 'ALL') {
+            highLowRatings = highLowRatings.filter(r => r.user === personFilter);
+        }
+        if (highLowMediaFilter !== 'ALL') {
+            highLowRatings = highLowRatings.filter(r => r.type === highLowMediaFilter);
+        }
+        if (highLowYearFilter !== 'ALL') {
+            highLowRatings = highLowRatings.filter(r => r.year === highLowYearFilter);
+        }
+
+        const sortedDesc = [...highLowRatings].sort((a, b) => b.rating - a.rating);
+        const sortedAsc = [...highLowRatings].sort((a, b) => a.rating - b.rating);
+        top5Highest = sortedDesc.slice(0, 5);
+        top5Lowest = sortedAsc.slice(0, 5);
+    }
 
     // Filter for Averages
     let avgRatings = ratings;
@@ -1061,7 +1158,7 @@ window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL',
             <div class="user-card" style="grid-column: 1 / -1;">
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
                     <h3 style="margin:0;">Highest & Lowest Rated</h3>
-                    <div style="display:flex; gap:1rem; flex-wrap: wrap;">
+                    <div style="display:flex; gap:1rem; flex-wrap: wrap; align-items: center;">
                         <select id="stat-highlow-year" onchange="updateStats()">
                             <option value="ALL" ${selHighLowYear('ALL')}>All Years</option>
                             <option value="2025" ${selHighLowYear('2025')}>2025</option>
@@ -1077,40 +1174,54 @@ window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL',
                             <option value="movie" ${selHighLowMedia('movie')}>Movies</option>
                             <option value="book" ${selHighLowMedia('book')}>Books</option>
                         </select>
+                        <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem; color:var(--text-secondary); cursor:pointer; user-select:none; margin:0;">
+                            <input type="checkbox" id="stat-highlow-multi" onchange="updateStats()" ${highLowMultiFilter ? 'checked' : ''} style="width:auto; margin:0;" />
+                            Multiple Reviews Only
+                        </label>
                     </div>
                 </div>
                 
                 <div style="display:flex; gap: 2rem; flex-wrap: wrap;">
                     <div style="flex:1; min-width: 280px;">
                         <h4 style="color:var(--text-secondary); margin-bottom:0.8rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">Top 5 Highest</h4>
-                        ${top5Highest.length > 0 ? top5Highest.map((item, idx) => `
+                        ${top5Highest.length > 0 ? top5Highest.map((item, idx) => {
+                            const subText = highLowMultiFilter 
+                                ? `${item.type.toUpperCase()} • ${item.reviewCount} reviews (${item.users.join(', ')})`
+                                : `${item.type.toUpperCase()} • ${item.user} • ${item.monthName}`;
+                            return `
                             <div class="media-item" style="padding: 0.8rem; margin-bottom: 0.5rem;">
                                 <div style="display:flex; justify-content:space-between; align-items:center;">
                                     <div>
                                         <span style="color:var(--text-secondary); font-size:0.8rem; font-weight:bold;">#${idx + 1}</span>
                                         <strong>${item.title}</strong>
-                                        <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">${item.type.toUpperCase()} • ${item.user} • ${item.monthName}</div>
+                                        <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">${subText}</div>
                                     </div>
                                     <div style="color: ${getRatingColor(item.rating)}; font-weight: 800; font-size: 1.2rem;">${item.rating}</div>
                                 </div>
                             </div>
-                        `).join('') : '<p>No data available yet.</p>'}
+                            `;
+                        }).join('') : '<p>No data available yet.</p>'}
                     </div>
                     
                     <div style="flex:1; min-width: 280px;">
                         <h4 style="color:var(--text-secondary); margin-bottom:0.8rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">Top 5 Lowest</h4>
-                        ${top5Lowest.length > 0 ? top5Lowest.map((item, idx) => `
+                        ${top5Lowest.length > 0 ? top5Lowest.map((item, idx) => {
+                            const subText = highLowMultiFilter 
+                                ? `${item.type.toUpperCase()} • ${item.reviewCount} reviews (${item.users.join(', ')})`
+                                : `${item.type.toUpperCase()} • ${item.user} • ${item.monthName}`;
+                            return `
                             <div class="media-item" style="padding: 0.8rem; margin-bottom: 0.5rem;">
                                 <div style="display:flex; justify-content:space-between; align-items:center;">
                                     <div>
                                         <span style="color:var(--text-secondary); font-size:0.8rem; font-weight:bold;">#${idx + 1}</span>
                                         <strong>${item.title}</strong>
-                                        <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">${item.type.toUpperCase()} • ${item.user} • ${item.monthName}</div>
+                                        <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">${subText}</div>
                                     </div>
                                     <div style="color: ${getRatingColor(item.rating)}; font-weight: 800; font-size: 1.2rem;">${item.rating}</div>
                                 </div>
                             </div>
-                        `).join('') : '<p>No data available yet.</p>'}
+                            `;
+                        }).join('') : '<p>No data available yet.</p>'}
                     </div>
                 </div>
             </div>
@@ -1507,7 +1618,10 @@ window.updateStats = function () {
     const genderPersonElem = document.getElementById('stat-gender-person');
     const genderPersonF = genderPersonElem ? genderPersonElem.value : 'ALL';
 
-    renderStats(personF, highLowMediaF, avgPersonF, avgMediaF, dictatorMediaF, histPersonF, histMediaF, highLowYearF, histYearF, dictatorYearF, genderPersonF);
+    const highLowMultiElem = document.getElementById('stat-highlow-multi');
+    const highLowMultiF = highLowMultiElem ? highLowMultiElem.checked : false;
+
+    renderStats(personF, highLowMediaF, avgPersonF, avgMediaF, dictatorMediaF, histPersonF, histMediaF, highLowYearF, histYearF, dictatorYearF, genderPersonF, highLowMultiF);
 };
 
 // --- Authentication ---

@@ -308,6 +308,17 @@ textarea {
     transition: border-color 0.3s ease;
 }
 
+input[type="checkbox"] {
+    width: auto;
+    height: auto;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    border-radius: 0;
+    cursor: pointer;
+}
+
 input:focus,
 select:focus,
 textarea:focus {
