@@ -69,6 +69,7 @@ async function loadData() {
                 state.currentMonthId = getDefaultMonthId(state.months);
             }
             render();
+            autoBackfillMetacriticScores();
         } else {
             // Firebase is empty, attempt to migrate local data up
             const saved = localStorage.getItem('mediaTrackerState');
@@ -92,6 +93,7 @@ async function loadData() {
                 state.currentMonthId = getDefaultMonthId(state.months);
             }
             render();
+            autoBackfillMetacriticScores();
         }
     }, (error) => {
         console.error("Firebase Months Read Error:", error);
@@ -241,32 +243,126 @@ const METACRITIC_SCORES = {
     'splitsville': 74
 };
 
+// Goodreads average ratings converted to a 100-point scale (5-star rating × 20)
+const GOODREADS_SCORES = {
+    "old man's war": 85, // 4.24
+    'lock in': 79, // 3.95
+    'locked in': 79, // 3.95
+    'leviathan wakes': 85, // 4.27
+    'the mercy of gods': 83, // 4.14
+    'mercy of gods': 83,
+    'nevernight': 84, // 4.19
+    'empire of the damned': 91, // 4.54
+    'educated': 89, // 4.47
+    'pay any price': 78, // 3.91
+    'the last honest man': 83, // 4.14
+    'last honest man': 83,
+    'the way of kings': 93, // 4.66
+    'the way of kings (the stormlight archive)': 93,
+    'words of radiance': 95, // 4.76
+    'oathbringer': 92, // 4.62
+    'oathbringer (stormlight chronicles book 3)': 92,
+    'mistborn': 89, // 4.47
+    'mistborn: the final empire': 89,
+    'the shadow of the gods': 86, // 4.32
+    'shadow of the gods': 86,
+    'fury of the gods': 89, // 4.45
+    'the fury of the gods': 89,
+    'the fellowship of the ring': 88, // 4.39
+    'the two towers': 90, // 4.48
+    'the return of the king': 91, // 4.57
+    'dungeon crawler carl': 90, // 4.52
+    'sapiens': 87, // 4.36
+    'nexus': 83, // 4.15
+    'nexus: a brief history of information networks from the stone age to ai': 83,
+    'five total strangers': 72, // 3.59
+    'five strangers': 72,
+    'the woman in the window': 79, // 3.95
+    'the kind worth killing': 81, // 4.03
+    'i, claudius': 85, // 4.26
+    'claudius the god': 85, // 4.23
+    'american war': 75, // 3.74
+    'with the old breed': 90, // 4.52
+    'with the old blood': 90,
+    'the pillars of the earth': 87, // 4.34
+    'pillars of the earth': 87,
+    'all the demons are here': 77, // 3.84
+    'original sin': 73, // 3.65
+    'razorblade tears': 86, // 4.29
+    'king of ashes': 79, // 3.95
+    'in other lands': 84, // 4.18
+    'the house in the cerulean sea': 88, // 4.40
+    'the house on the cerulean sea': 88,
+    'a prayer for owen meany': 85, // 4.24
+    'the world according to garp': 82, // 4.09
+    'jurassic park': 82, // 4.10
+    'snowblind': 72, // 3.58
+    'ararat': 68, // 3.41
+    'the blade itself': 84, // 4.20
+    'the devils': 84, // 4.19
+    'devils': 84,
+    'the lies of locke lamora': 86, // 4.28
+    'lies of locke lamora': 86,
+    'the left hand of darkness': 82, // 4.10
+    'left hand of darkness': 82,
+    'the fifth season': 86, // 4.31
+    'city of inmates': 87, // 4.33
+    'bad mexicans': 84, // 4.19
+    'frankenstein': 78, // 3.88
+    'the plot': 76, // 3.82
+    'the sequel': 75, // 3.75
+    'the guns of august': 84, // 4.18
+    'the proud tower': 83, // 4.16
+    'tomorrow, and tomorrow, and tomorrow': 83, // 4.17
+    'tomorrow and tomorrow and tomorrow': 83,
+    'tomorrow, tomorrow, and tomorrow': 83,
+    'freefall': 75, // 3.75
+    'chip war': 88, // 4.41
+    'chip wars': 88,
+    'the crusades': 85, // 4.27
+    'the fault in our stars': 83, // 4.14
+    'the anthropocene reviewed': 88, // 4.39
+    'anthropocene reviewed': 88,
+    'burr': 82 // 4.08
+};
+
+window.normalizeReferenceScore = function (rawVal, type) {
+    if (rawVal === undefined || rawVal === null || rawVal === '') return null;
+    const num = parseFloat(rawVal);
+    if (isNaN(num) || num <= 0) return null;
+    // If a book score is entered on Goodreads's 5-star scale (e.g. 4.25), convert to 100-point scale (× 20)
+    if (type === 'book' && num <= 5) {
+        return Math.max(0, Math.min(100, Math.round(num * 20)));
+    }
+    return Math.max(0, Math.min(100, Math.round(num)));
+};
+
 window.lookupMetacriticScore = function (title, type, entry, month) {
-    if (type !== 'game' && type !== 'movie') return null;
+    if (type !== 'game' && type !== 'movie' && type !== 'book') return null;
 
     // 1. Check explicit entry override
     if (entry && entry.metacritic !== undefined && entry.metacritic !== null && entry.metacritic !== '') {
-        const val = parseInt(entry.metacritic, 10);
-        if (!isNaN(val)) return val;
+        const val = normalizeReferenceScore(entry.metacritic, type);
+        if (val !== null) return val;
     }
 
     // 2. Check dictator globalPicks override
     if (month && month.mode === 'dictator' && month.globalPicks) {
         const globalMeta = month.globalPicks[type + 'Metacritic'];
         if (globalMeta !== undefined && globalMeta !== null && globalMeta !== '') {
-            const val = parseInt(globalMeta, 10);
-            if (!isNaN(val)) return val;
+            const val = normalizeReferenceScore(globalMeta, type);
+            if (val !== null) return val;
         }
     }
 
-    // 3. Check if another user in the same month (or across months) has a metacritic score for a similar title
+    // 3. Check if another user in the same month (or across months) has a score for a similar title
     if (title && state && state.months) {
         for (const m of state.months) {
             if (m.mode === 'dictator' && m.globalPicks && m.globalPicks[type] && isSimilarTitle(m.globalPicks[type], title)) {
                 const gm = m.globalPicks[type + 'Metacritic'];
                 if (gm !== undefined && gm !== null && gm !== '') {
-                    const val = parseInt(gm, 10);
-                    if (!isNaN(val)) return val;
+                    const val = normalizeReferenceScore(gm, type);
+                    if (val !== null) return val;
                 }
             }
             for (const u of USERS) {
@@ -274,8 +370,8 @@ window.lookupMetacriticScore = function (title, type, entry, month) {
                 if (e && e.metacritic !== undefined && e.metacritic !== null && e.metacritic !== '') {
                     const eTitle = (m.mode === 'dictator' && m.globalPicks) ? m.globalPicks[type] : e.title;
                     if (eTitle && isSimilarTitle(eTitle, title)) {
-                        const val = parseInt(e.metacritic, 10);
-                        if (!isNaN(val)) return val;
+                        const val = normalizeReferenceScore(e.metacritic, type);
+                        if (val !== null) return val;
                     }
                 }
             }
@@ -285,9 +381,10 @@ window.lookupMetacriticScore = function (title, type, entry, month) {
     // 4. Check static dictionary (exact or fuzzy)
     if (!title) return null;
     const key = title.toLowerCase().trim();
-    if (METACRITIC_SCORES[key] !== undefined) return METACRITIC_SCORES[key];
+    const dict = type === 'book' ? GOODREADS_SCORES : METACRITIC_SCORES;
+    if (dict[key] !== undefined) return dict[key];
 
-    for (const [k, score] of Object.entries(METACRITIC_SCORES)) {
+    for (const [k, score] of Object.entries(dict)) {
         if (isSimilarTitle(k, title)) return score;
     }
 
@@ -309,7 +406,7 @@ window.evaluateMetacriticMatch = function (userRating, metaScore) {
     const scaledUser = r * 10;
     const diff = scaledUser - m; // positive means user rated higher than critics
     const absDiff = Math.abs(diff);
-    const isMatch = absDiff <= 5; // Within ±5 points (e.g. 7/10 = 65-75)
+    const isMatch = absDiff <= 9; // Within ±9 points (e.g. 10/10 = 91-100, 7/10 = 61-79)
     return {
         isMatch,
         diff,
@@ -317,6 +414,111 @@ window.evaluateMetacriticMatch = function (userRating, metaScore) {
         direction: isMatch ? 'match' : (diff > 0 ? 'higher' : 'lower')
     };
 };
+
+const attemptedMetaFetches = new Set();
+let isBackfillingMetacritic = false;
+
+async function autoBackfillMetacriticScores() {
+    if (isBackfillingMetacritic || !state.months || state.months.length === 0) return;
+    isBackfillingMetacritic = true;
+
+    try {
+        let changedSync = false;
+        const missingToFetch = new Map();
+
+        // Pass 1: Immediately populate any past/existing entries from METACRITIC_SCORES / GOODREADS_SCORES or sibling entries
+        state.months.forEach(month => {
+            MEDIA_TYPES.forEach(type => {
+                if (month.mode === 'dictator' && month.globalPicks) {
+                    const gTitle = (month.globalPicks[type] || '').trim();
+                    const gMeta = month.globalPicks[type + 'Metacritic'];
+                    if (gTitle && (gMeta === undefined || gMeta === null || gMeta === '')) {
+                        const known = lookupMetacriticScore(gTitle, type, null, month);
+                        if (known !== null && known !== undefined) {
+                            month.globalPicks[type + 'Metacritic'] = known;
+                            changedSync = true;
+                        } else {
+                            const key = `${type}::${gTitle.toLowerCase()}`;
+                            if (!attemptedMetaFetches.has(key)) {
+                                missingToFetch.set(key, { title: gTitle, type });
+                            }
+                        }
+                    }
+                }
+
+                USERS.forEach(user => {
+                    const entry = month.entries?.[user]?.[type];
+                    if (!entry) return;
+                    const eTitle = (month.mode === 'dictator' && month.globalPicks)
+                        ? (month.globalPicks[type] || '').trim()
+                        : (entry.title || '').trim();
+                    if (!eTitle) return;
+
+                    if (entry.metacritic === undefined || entry.metacritic === null || entry.metacritic === '') {
+                        const known = lookupMetacriticScore(eTitle, type, entry, month);
+                        if (known !== null && known !== undefined) {
+                            entry.metacritic = known;
+                            changedSync = true;
+                        } else {
+                            const key = `${type}::${eTitle.toLowerCase()}`;
+                            if (!attemptedMetaFetches.has(key)) {
+                                missingToFetch.set(key, { title: eTitle, type });
+                            }
+                        }
+                    }
+                });
+            });
+        });
+
+        if (changedSync) {
+            saveData();
+            render();
+        }
+
+        // Pass 2: Automatically fetch any remaining past/existing titles from the web and save them
+        if (missingToFetch.size > 0) {
+            let changedAsync = false;
+            for (const [key, { title, type }] of missingToFetch.entries()) {
+                attemptedMetaFetches.add(key);
+                const score = await fetchMetacriticScoreFromWeb(title, type);
+                if (score !== null && score !== undefined) {
+                    if (type === 'book') {
+                        GOODREADS_SCORES[title.toLowerCase().trim()] = score;
+                    } else {
+                        METACRITIC_SCORES[title.toLowerCase().trim()] = score;
+                    }
+                    state.months.forEach(month => {
+                        if (month.mode === 'dictator' && month.globalPicks) {
+                            const gTitle = (month.globalPicks[type] || '').trim();
+                            if (gTitle && isSimilarTitle(gTitle, title) && !month.globalPicks[type + 'Metacritic']) {
+                                month.globalPicks[type + 'Metacritic'] = score;
+                                changedAsync = true;
+                            }
+                        }
+                        USERS.forEach(user => {
+                            const entry = month.entries?.[user]?.[type];
+                            if (!entry) return;
+                            const eTitle = (month.mode === 'dictator' && month.globalPicks)
+                                ? (month.globalPicks[type] || '').trim()
+                                : (entry.title || '').trim();
+                            if (eTitle && isSimilarTitle(eTitle, title) && (entry.metacritic === undefined || entry.metacritic === null || entry.metacritic === '')) {
+                                entry.metacritic = score;
+                                changedAsync = true;
+                            }
+                        });
+                    });
+                }
+            }
+
+            if (changedAsync) {
+                saveData();
+                render();
+            }
+        }
+    } finally {
+        isBackfillingMetacritic = false;
+    }
+}
 
 // --- DOM Elements ---
 const nav = document.getElementById('month-nav');
@@ -743,13 +945,19 @@ function renderMediaItemsForUser(month, user, isEdit) {
         }
 
         if (isEdit) {
-            const currentMeta = entry.metacritic !== undefined && entry.metacritic !== '' ? entry.metacritic : (lookupMetacriticScore(displayTitle, type, entry, month) ?? '');
-            const metaFieldHtml = (type === 'game' || type === 'movie') ? `
+            const currentMeta = entry.metacritic !== undefined && entry.metacritic !== ''
+                ? normalizeReferenceScore(entry.metacritic, type) ?? ''
+                : (lookupMetacriticScore(displayTitle, type, entry, month) ?? '');
+            const isBook = type === 'book';
+            const refPlaceholder = isBook ? 'Goodreads Score (0-100 or 1-5★, Optional)' : 'Metacritic Score (0-100, Optional)';
+            const refBtnLabel = isBook ? '📚 GR' : '🎯 Meta';
+            const refBtnTitle = isBook ? 'Auto-find Goodreads Score' : 'Auto-find Metacritic Score';
+            const metaFieldHtml = `
                 <div style="display: flex; margin-top: 0.5rem;">
-                    <input type="number" id="edit-${user}-${type}-metacritic" value="${currentMeta}" placeholder="Metacritic Score (0-100, Optional)" min="0" max="100" step="1" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0;" />
-                    <button type="button" class="btn-secondary input-group-btn" onclick="autoFetchMetacritic('${user}', '${type}', ${isDictatorMode})" title="Auto-find Metacritic Score">🎯 Meta</button>
+                    <input type="number" id="edit-${user}-${type}-metacritic" value="${currentMeta}" placeholder="${refPlaceholder}" min="0" max="100" step="any" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0;" />
+                    <button type="button" class="btn-secondary input-group-btn" onclick="autoFetchMetacritic('${user}', '${type}', ${isDictatorMode})" title="${refBtnTitle}">${refBtnLabel}</button>
                 </div>
-            ` : '';
+            `;
             output += `
                 <div class="form-group">
                     <div style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 0.3rem;">${type}</div>
@@ -785,14 +993,15 @@ function renderMediaItemsForUser(month, user, isEdit) {
                 }
             }
 
-            // Metacritic display: Only shown if user has entered their own rating for this item AND the currently logged-in user has also rated it if it's the same item
+            // Metacritic / Goodreads display: Shown once a score is entered; on the active month, also waits until currentUser has rated if it's the same item
+            const isCurrentChronologicalMonth = month.id === getDefaultMonthId(state.months);
             const currentUserEntry = currentUser && month.entries[currentUser] ? month.entries[currentUser][type] : null;
             const currentUserTitle = isDictatorMode ? globalTitle : (currentUserEntry ? currentUserEntry.title : '');
-            const isSameItemAsCurrentUser = currentUser && currentUser !== user && displayTitle && currentUserTitle && isSimilarTitle(displayTitle, currentUserTitle);
+            const isSameItemAsCurrentUser = isCurrentChronologicalMonth && currentUser && currentUser !== user && displayTitle && currentUserTitle && isSimilarTitle(displayTitle, currentUserTitle);
             const canShowMetacritic = entry.rating && (!isSameItemAsCurrentUser || (currentUserEntry && currentUserEntry.rating));
 
             let metacriticHtml = '';
-            if (canShowMetacritic && (type === 'game' || type === 'movie')) {
+            if (canShowMetacritic) {
                 const metaScore = lookupMetacriticScore(displayTitle, type, entry, month);
                 if (metaScore !== null && metaScore !== undefined) {
                     const evalResult = evaluateMetacriticMatch(entry.rating, metaScore);
@@ -802,9 +1011,12 @@ function renderMediaItemsForUser(month, user, isEdit) {
                         const statusLabel = evalResult.isMatch
                             ? '✓ Match'
                             : `⚡ Outlier (${evalResult.diff > 0 ? '+' : ''}${Math.round(evalResult.diff)})`;
+                        const sourceLabel = type === 'book'
+                            ? `Goodreads ${metaScore}/100 (~${(metaScore / 20).toFixed(2)}★)`
+                            : `Metacritic ${metaScore}/100`;
                         const tooltipText = evalResult.isMatch
-                            ? `Within ±5 pts of Metacritic (${metaScore}/100 vs ${entry.rating * 10}/100)`
-                            : `${Math.abs(Math.round(evalResult.diff))} pts ${evalResult.diff > 0 ? 'higher' : 'lower'} than Metacritic (${metaScore}/100 vs ${entry.rating * 10}/100)`;
+                            ? `Within ±9 pts of ${sourceLabel} (Your rating: ${entry.rating * 10}/100)`
+                            : `${Math.abs(Math.round(evalResult.diff))} pts ${evalResult.diff > 0 ? 'higher' : 'lower'} than ${sourceLabel} (Your rating: ${entry.rating * 10}/100)`;
                         metacriticHtml = `
                             <div class="metacritic-row" title="${tooltipText}">
                                 <span class="metacritic-badge" style="background: ${metaColor};">${metaScore}</span>
@@ -981,8 +1193,8 @@ window.saveEdit = function (user) {
         if (metaEl) {
             const metaVal = metaEl.value.trim();
             if (metaVal !== '') {
-                const parsedMeta = Math.max(0, Math.min(100, Math.round(Number(metaVal))));
-                month.entries[user][type].metacritic = !isNaN(parsedMeta) ? parsedMeta : '';
+                const parsedMeta = normalizeReferenceScore(metaVal, type);
+                month.entries[user][type].metacritic = parsedMeta !== null ? parsedMeta : '';
                 if (month.mode === 'dictator' && month.globalPicks) {
                     month.globalPicks[type + 'Metacritic'] = month.entries[user][type].metacritic;
                 }
@@ -1019,24 +1231,22 @@ window.saveEdit = function (user) {
     saveData();
     render();
 
-    // Asynchronously auto-fetch Metacritic scores in the background if a game/movie has a title & rating but no Metacritic score yet
+    // Asynchronously auto-fetch Metacritic / Goodreads scores in the background if an item has a title & rating but no reference score yet
     MEDIA_TYPES.forEach(type => {
-        if (type === 'game' || type === 'movie') {
-            const entry = month.entries[user][type];
-            const title = month.mode === 'dictator' ? (month.globalPicks?.[type] || '') : entry.title;
-            const existingMeta = lookupMetacriticScore(title, type, entry, month);
-            if (title && entry.rating && (existingMeta === null || existingMeta === undefined)) {
-                fetchMetacriticScoreFromWeb(title, type).then(score => {
-                    if (score !== null) {
-                        entry.metacritic = score;
-                        if (month.mode === 'dictator' && month.globalPicks) {
-                            month.globalPicks[type + 'Metacritic'] = score;
-                        }
-                        saveData();
-                        render();
+        const entry = month.entries[user][type];
+        const title = month.mode === 'dictator' ? (month.globalPicks?.[type] || '') : entry.title;
+        const existingMeta = lookupMetacriticScore(title, type, entry, month);
+        if (title && entry.rating && (existingMeta === null || existingMeta === undefined)) {
+            fetchMetacriticScoreFromWeb(title, type).then(score => {
+                if (score !== null) {
+                    entry.metacritic = score;
+                    if (month.mode === 'dictator' && month.globalPicks) {
+                        month.globalPicks[type + 'Metacritic'] = score;
                     }
-                });
-            }
+                    saveData();
+                    render();
+                }
+            });
         }
     });
 };
@@ -1073,6 +1283,9 @@ window.showGlobalPicksModal = function () {
     const movieMeta = month.globalPicks.movieMetacritic !== undefined && month.globalPicks.movieMetacritic !== ''
         ? month.globalPicks.movieMetacritic
         : (lookupMetacriticScore(month.globalPicks.movie, 'movie', null, month) ?? '');
+    const bookMeta = month.globalPicks.bookMetacritic !== undefined && month.globalPicks.bookMetacritic !== ''
+        ? (normalizeReferenceScore(month.globalPicks.bookMetacritic, 'book') ?? '')
+        : (lookupMetacriticScore(month.globalPicks.book, 'book', null, month) ?? '');
 
     const modal = document.getElementById('global-picks-modal');
     modal.innerHTML = `
@@ -1115,6 +1328,10 @@ window.showGlobalPicksModal = function () {
                     <input type="text" id="global-book-image" value="${month.globalPicks.bookImage || ''}" placeholder="Cover Image URL (Optional)" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0;" />
                     <button type="button" class="btn-secondary input-group-btn" onclick="autoFetchGlobalImage('book')" title="Auto-find Image based on Title">🔍 Fetch</button>
                 </div>
+                <div style="display: flex; margin-top: 0.5rem;">
+                    <input type="number" id="global-book-metacritic" value="${bookMeta}" placeholder="Goodreads Score (0-100 or 1-5★, Optional)" min="0" max="100" step="any" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0;" />
+                    <button type="button" class="btn-secondary input-group-btn" onclick="autoFetchGlobalMetacritic('book')" title="Auto-find Goodreads Score">📚 GR</button>
+                </div>
             </div>
             <div class="modal-actions">
                 <button class="btn-secondary" onclick="document.getElementById('global-picks-modal').classList.add('hidden')">Cancel</button>
@@ -1135,17 +1352,22 @@ window.saveGlobalPicks = function () {
     const gameMetaEl = document.getElementById('global-game-metacritic');
     if (gameMetaEl) {
         const gm = gameMetaEl.value.trim();
-        month.globalPicks.gameMetacritic = gm !== '' ? Math.max(0, Math.min(100, Math.round(Number(gm)))) : '';
+        month.globalPicks.gameMetacritic = gm !== '' ? (normalizeReferenceScore(gm, 'game') ?? '') : '';
     }
     month.globalPicks.movie = document.getElementById('global-movie-title').value;
     month.globalPicks.movieImage = document.getElementById('global-movie-image').value;
     const movieMetaEl = document.getElementById('global-movie-metacritic');
     if (movieMetaEl) {
         const mm = movieMetaEl.value.trim();
-        month.globalPicks.movieMetacritic = mm !== '' ? Math.max(0, Math.min(100, Math.round(Number(mm)))) : '';
+        month.globalPicks.movieMetacritic = mm !== '' ? (normalizeReferenceScore(mm, 'movie') ?? '') : '';
     }
     month.globalPicks.book = document.getElementById('global-book-title').value;
     month.globalPicks.bookImage = document.getElementById('global-book-image').value;
+    const bookMetaEl = document.getElementById('global-book-metacritic');
+    if (bookMetaEl) {
+        const bm = bookMetaEl.value.trim();
+        month.globalPicks.bookMetacritic = bm !== '' ? (normalizeReferenceScore(bm, 'book') ?? '') : '';
+    }
     const bookAuthorEl = document.getElementById('global-book-author');
     const bookGenderEl = document.getElementById('global-book-gender');
     if (bookAuthorEl) month.globalPicks.bookAuthor = bookAuthorEl.value.trim();
@@ -1744,12 +1966,12 @@ window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL',
                 })()}
             </div>
 
-            <!-- Metacritic Alignment & Outlier Stats -->
+            <!-- Metacritic & Goodreads Alignment & Outlier Stats -->
             <div class="user-card" style="grid-column: 1 / -1; margin-top: 2rem;">
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin-bottom:1.2rem;">
                     <div>
-                        <h3 style="margin:0;">🎯 Metacritic Alignment</h3>
-                        <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">How each member's ratings compare to Metacritic (Match = within ±5 pts of score × 10)</div>
+                        <h3 style="margin:0;">🎯 Metacritic & Goodreads Alignment</h3>
+                        <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">How each member's ratings compare to Metacritic (Games/Movies) & Goodreads (Books) (Match = within ±9 pts of score × 10)</div>
                     </div>
                     <div style="display:flex; gap:0.8rem; align-items:center; flex-wrap:wrap;">
                         <div>
@@ -1763,20 +1985,21 @@ window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL',
                         <div>
                             <label style="font-size:0.75rem; color:var(--text-secondary); display:block;">Media Type</label>
                             <select id="stat-meta-media" onchange="updateStats()">
-                                <option value="ALL" ${metaMediaFilter === 'ALL' ? 'selected' : ''}>Games & Movies</option>
+                                <option value="ALL" ${metaMediaFilter === 'ALL' ? 'selected' : ''}>All Media</option>
                                 <option value="game" ${metaMediaFilter === 'game' ? 'selected' : ''}>Games Only</option>
                                 <option value="movie" ${metaMediaFilter === 'movie' ? 'selected' : ''}>Movies Only</option>
+                                <option value="book" ${metaMediaFilter === 'book' ? 'selected' : ''}>Books Only</option>
                             </select>
                         </div>
                     </div>
                 </div>
                 ${(() => {
-                    let metaRatings = ratings.filter(r => (r.type === 'game' || r.type === 'movie') && r.metacritic !== null && r.metacritic !== undefined);
+                    let metaRatings = ratings.filter(r => r.metacritic !== null && r.metacritic !== undefined);
                     if (metaMediaFilter !== 'ALL') metaRatings = metaRatings.filter(r => r.type === metaMediaFilter);
                     if (metaYearFilter !== 'ALL') metaRatings = metaRatings.filter(r => r.year === metaYearFilter);
 
                     if (metaRatings.length === 0) {
-                        return '<p style="color:var(--text-secondary);">No Metacritic comparison data available for this filter.</p>';
+                        return '<p style="color:var(--text-secondary);">No reference comparison data available for this filter.</p>';
                     }
 
                     const userCardsHtml = USERS.map(u => {
@@ -1848,7 +2071,7 @@ window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL',
                                         <div style="font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${biggestOutlier.title}">${biggestOutlier.title}</div>
                                         <div style="display:flex; justify-content:space-between; margin-top:0.25rem; font-size:0.78rem;">
                                             <span>Rated: <strong style="color:${getRatingColor(biggestOutlier.rating)};">${biggestOutlier.rating}/10</strong> (${biggestOutlier.rating * 10})</span>
-                                            <span>Meta: <strong style="color:${getMetacriticColor(biggestOutlier.metacritic)};">${biggestOutlier.metacritic}</strong> (${biggestOutlier.diff > 0 ? '+' : ''}${Math.round(biggestOutlier.diff)})</span>
+                                            <span>${biggestOutlier.type === 'book' ? 'GR' : 'Meta'}: <strong style="color:${getMetacriticColor(biggestOutlier.metacritic)};">${biggestOutlier.metacritic}</strong> (${biggestOutlier.diff > 0 ? '+' : ''}${Math.round(biggestOutlier.diff)})</span>
                                         </div>
                                     </div>
                                 ` : ''}
@@ -2392,18 +2615,71 @@ window.autoFetchGlobalImage = async function (type) {
     }
 };
 
-// --- Metacritic Auto-Fetch ---
+// --- Metacritic & Goodreads Auto-Fetch ---
 window.fetchMetacriticScoreFromWeb = async function (title, type) {
-    if (!title || (type !== 'game' && type !== 'movie')) return null;
+    if (!title || (type !== 'game' && type !== 'movie' && type !== 'book')) return null;
 
     // 1. Check local dictionary first
     const key = title.toLowerCase().trim();
-    if (METACRITIC_SCORES[key] !== undefined) return METACRITIC_SCORES[key];
-    for (const [k, score] of Object.entries(METACRITIC_SCORES)) {
+    const dict = type === 'book' ? GOODREADS_SCORES : METACRITIC_SCORES;
+    if (dict[key] !== undefined) return dict[key];
+    for (const [k, score] of Object.entries(dict)) {
         if (isSimilarTitle(k, title)) return score;
     }
 
-    // 2. Query Google Custom Search for Metacritic score
+    if (type === 'book') {
+        // 2a. Query Google Custom Search for Goodreads rating (5-star scale -> 100-point scale via × 20)
+        try {
+            const q = encodeURIComponent(`"${title}" book site:goodreads.com`);
+            const res = await fetch(`https://www.googleapis.com/customsearch/v1?key=${GOOGLE_SEARCH_KEY}&cx=${GOOGLE_SEARCH_CX}&q=${q}&num=5`);
+            const data = await res.json();
+            if (data.items) {
+                for (const item of data.items) {
+                    const agg = item.pagemap?.aggregaterating?.[0];
+                    if (agg && agg.ratingvalue) {
+                        const parsed = parseFloat(agg.ratingvalue);
+                        if (!isNaN(parsed) && parsed > 0 && parsed <= 5) {
+                            return Math.round(parsed * 20);
+                        }
+                    }
+                    const text = `${item.title || ''} ${item.snippet || ''}`;
+                    const grPatterns = [
+                        /(\d\.\d{1,2})\s*(?:avg\s*rating|average\s*rating|out\s*of\s*5|\/\s*5|stars|rating)/i,
+                        /(?:rating|rated)[:\s]+(\d\.\d{1,2})/i,
+                        /★\s*(\d\.\d{1,2})/
+                    ];
+                    for (const pat of grPatterns) {
+                        const m = text.match(pat);
+                        if (m && m[1]) {
+                            const val = parseFloat(m[1]);
+                            if (val >= 1 && val <= 5) return Math.round(val * 20);
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('Google search for Goodreads score failed:', e);
+        }
+
+        // 3a. Fallback: OpenLibrary Search API ratings_average (5-star scale -> × 20)
+        try {
+            const olRes = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&fields=title,ratings_average&limit=5`);
+            const olData = await olRes.json();
+            if (olData.docs) {
+                for (const doc of olData.docs) {
+                    if (doc.ratings_average && doc.ratings_average >= 1 && doc.ratings_average <= 5) {
+                        return Math.round(doc.ratings_average * 20);
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('OpenLibrary fallback for book score failed:', e);
+        }
+
+        return null;
+    }
+
+    // 2b. Query Google Custom Search for Metacritic score (Games & Movies)
     try {
         const mediaTerm = type === 'game' ? 'game' : 'movie';
         const q = encodeURIComponent(`"${title}" ${mediaTerm} site:metacritic.com`);
@@ -2437,7 +2713,7 @@ window.fetchMetacriticScoreFromWeb = async function (title, type) {
         console.warn('Google search for Metacritic score failed:', e);
     }
 
-    // 3. Fallback: Wikipedia reception section / infobox via MediaWiki API
+    // 3b. Fallback: Wikipedia reception section / infobox via MediaWiki API
     try {
         const searchSuffix = type === 'game' ? 'video game' : 'film';
         const wikiSearchRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(title + ' ' + searchSuffix)}&srlimit=3&format=json&origin=*`);
@@ -2450,9 +2726,9 @@ window.fetchMetacriticScoreFromWeb = async function (title, type) {
             const wikitext = pageObj?.revisions?.[0]?.slots?.main?.['*'] || '';
             if (wikitext) {
                 const mcPatterns = [
-                    /\|\s*MC\s*=\s*(\d{2})\s*(?:\/\s*100)?/i,
-                    /Metacritic[\s\S]{0,120}?(\d{2})\s*\/\s*100/i,
-                    /Metacritic[\s\S]{0,120}?score\s+of\s+(\d{2})\b/i
+                    /\|\s*MC(?:_[A-Z0-9]+)?\s*=\s*(?:\{\{[^}]*?\|)?\s*(\d{2,3})\s*(?:\/\s*100)?/i,
+                    /Metacritic[\s\S]{0,200}?(\d{2,3})\s*(?:\/\s*100|out\s+of\s+100)/i,
+                    /Metacritic[\s\S]{0,200}?score\s+of\s+(\d{2,3})\b/i
                 ];
                 for (const pat of mcPatterns) {
                     const m = wikitext.match(pat);
@@ -2482,19 +2758,20 @@ window.autoFetchMetacritic = async function (user, type, isDictatorMode) {
     const metaEl = document.getElementById(`edit-${user}-${type}-metacritic`);
     if (!metaEl) return;
 
+    const sourceName = type === 'book' ? 'Goodreads' : 'Metacritic';
     if (!title) {
-        alert("Please enter a title first to look up its Metacritic score.");
+        alert(`Please enter a title first to look up its ${sourceName} score.`);
         return;
     }
 
     const origPlaceholder = metaEl.placeholder;
-    metaEl.placeholder = "Searching Metacritic...";
+    metaEl.placeholder = `Searching ${sourceName}...`;
     try {
         const score = await fetchMetacriticScoreFromWeb(title, type);
         if (score !== null) {
             metaEl.value = score;
         } else {
-            alert(`Couldn't automatically find a Metacritic score for "${title}". You can enter it manually (0–100).`);
+            alert(`Couldn't automatically find a ${sourceName} score for "${title}". You can enter it manually.`);
         }
     } finally {
         metaEl.placeholder = origPlaceholder;
@@ -2506,20 +2783,21 @@ window.autoFetchGlobalMetacritic = async function (type) {
     const metaEl = document.getElementById(`global-${type}-metacritic`);
     if (!titleEl || !metaEl) return;
 
+    const sourceName = type === 'book' ? 'Goodreads' : 'Metacritic';
     const title = titleEl.value.trim();
     if (!title) {
-        alert("Please enter a title first to look up its Metacritic score.");
+        alert(`Please enter a title first to look up its ${sourceName} score.`);
         return;
     }
 
     const origPlaceholder = metaEl.placeholder;
-    metaEl.placeholder = "Searching Metacritic...";
+    metaEl.placeholder = `Searching ${sourceName}...`;
     try {
         const score = await fetchMetacriticScoreFromWeb(title, type);
         if (score !== null) {
             metaEl.value = score;
         } else {
-            alert(`Couldn't automatically find a Metacritic score for "${title}". You can enter it manually (0–100).`);
+            alert(`Couldn't automatically find a ${sourceName} score for "${title}". You can enter it manually.`);
         }
     } finally {
         metaEl.placeholder = origPlaceholder;
