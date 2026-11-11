@@ -1320,4 +1320,78 @@ option {
     .wishlist-schedule-btn {
         opacity: 1;
     }
-}
+}
+
+/* ===== Metacritic Score & Alignment Badges ===== */
+.metacritic-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+    cursor: help;
+}
+
+.metacritic-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 4px;
+    color: #0d1117;
+    font-weight: 800;
+    font-size: 0.72rem;
+    line-height: 1;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.metacritic-status {
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.68rem;
+    white-space: nowrap;
+}
+
+.metacritic-status.meta-match {
+    background: rgba(102, 204, 51, 0.16);
+    color: #66cc33;
+    border: 1px solid rgba(102, 204, 51, 0.35);
+}
+
+body.light-mode .metacritic-status.meta-match {
+    background: rgba(46, 160, 67, 0.15);
+    color: #1f7a31;
+    border-color: rgba(46, 160, 67, 0.35);
+}
+
+.metacritic-status.meta-outlier {
+    background: rgba(255, 152, 0, 0.16);
+    color: #ff9800;
+    border: 1px solid rgba(255, 152, 0, 0.35);
+}
+
+body.light-mode .metacritic-status.meta-outlier {
+    background: rgba(230, 126, 34, 0.15);
+    color: #b95800;
+    border-color: rgba(230, 126, 34, 0.35);
+}
+
+.meta-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.2rem;
+}
+
+.meta-stat-user-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 1rem;
+}
+
+body.light-mode .meta-stat-user-card {
+    background: rgba(0, 0, 0, 0.02);
+}
+

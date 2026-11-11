@@ -131,6 +131,193 @@ window.getRatingColor = function (rating) {
     return '#9c27b0';
 }
 
+// --- Metacritic Helpers & Lookup ---
+const METACRITIC_SCORES = {
+    // Games
+    'cat quest 3': 80,
+    'cat quest iii': 80,
+    'stellar blade': 82,
+    'armored core 6': 86,
+    'armored core vi': 86,
+    'armored core vi: fires of rubicon': 86,
+    'aliens dark descent': 75,
+    'aliens: dark descent': 75,
+    'hogwarts legacy': 84,
+    'metaphor refantazio': 94,
+    'metaphor: refantazio': 94,
+    'tunic': 85,
+    'warhammer 40k rogue trader': 78,
+    'warhammer 40,000: rogue trader': 78,
+    'deeprock galactic: survivor': 86,
+    'deep rock galactic: survivor': 86,
+    'grounded': 83,
+    'split fiction': 91,
+    'high on life': 67,
+    'god of war ragnarok': 94,
+    'god of war ragnarök': 94,
+    'enshrouded': 88,
+    'clair obscur: expedetion 33': 92,
+    'clair obscur: expedition 33': 92,
+    'expedition 33': 92,
+    'v rising (pc)': 85,
+    'v rising': 85,
+    'cobalt core': 94,
+    'doom the dark ages': 85,
+    'doom: the dark ages': 85,
+    'vampire survivor': 86,
+    'vampire survivors': 86,
+    'return of the obra dinn': 91,
+    'tactical breach wizards': 87,
+    'death stranding': 84,
+    'kingdom cum deliverance ii': 88,
+    'kindgom come deliverance ii': 88,
+    'kingdom come deliverance ii': 88,
+    'kingdom come: deliverance ii': 88,
+    'pentiment': 88,
+    'borderlands 4': 84,
+    'hades 2': 94,
+    'hades ii': 94,
+    'arc raiders': 87,
+    'ghost of yotei': 87,
+    'ghost of yōtei': 87,
+    'kunitsu-gami: path of the goddess': 80,
+    'kunitsu-gami': 80,
+    'astro bot': 94,
+    'shadow gambit: the cursed crew': 84,
+    'shadow gambit': 84,
+    'evil west': 73,
+    'dispatch': 89,
+    'blue prince': 92,
+
+    // Movies
+    'hit man': 83,
+    'sonic 3': 59,
+    'sonic the hedgehog 3': 59,
+    'wicked': 73,
+    'wicked 2': 58,
+    'wicked: for good': 58,
+    'dark city': 66,
+    'nosferatu': 83,
+    'captain america: brave new world': 43,
+    'captain america brave new world': 43,
+    'ministry of ungentlemanly warfare': 55,
+    'the ministry of ungentlemanly warfare': 55,
+    'parasite': 96,
+    'rashomon': 98,
+    'the brutalist': 90,
+    'brutalist': 90,
+    'sinners': 84,
+    'no other land': 93,
+    'how to train your dragon 2': 77,
+    'heretic': 71,
+    'friendship': 72,
+    'the wild robot': 85,
+    'wild robot': 85,
+    'mickey 17': 72,
+    'fantastic four': 64,
+    'the fantastic four: first steps': 64,
+    'phoenician scheme': 70,
+    'the phoenician scheme': 70,
+    'naked gun': 79,
+    'the naked gun': 79,
+    'kpop demon hunters': 75,
+    'formula 1': 68,
+    'f1': 68,
+    'f1: the movie': 68,
+    'alien': 89,
+    'the lighthouse': 83,
+    'lighthouse': 83,
+    '28 years later': 78,
+    'one battle after another': 96,
+    'weapons': 81,
+    'warfare': 78,
+    'como agua para chocolate': 80,
+    'frankenstein': 73,
+    'the substance': 78,
+    'substance': 78,
+    'eddington': 65,
+    'ballerina': 60,
+    'greyhound': 64,
+    'splitsville': 74
+};
+
+window.lookupMetacriticScore = function (title, type, entry, month) {
+    if (type !== 'game' && type !== 'movie') return null;
+
+    // 1. Check explicit entry override
+    if (entry && entry.metacritic !== undefined && entry.metacritic !== null && entry.metacritic !== '') {
+        const val = parseInt(entry.metacritic, 10);
+        if (!isNaN(val)) return val;
+    }
+
+    // 2. Check dictator globalPicks override
+    if (month && month.mode === 'dictator' && month.globalPicks) {
+        const globalMeta = month.globalPicks[type + 'Metacritic'];
+        if (globalMeta !== undefined && globalMeta !== null && globalMeta !== '') {
+            const val = parseInt(globalMeta, 10);
+            if (!isNaN(val)) return val;
+        }
+    }
+
+    // 3. Check if another user in the same month (or across months) has a metacritic score for a similar title
+    if (title && state && state.months) {
+        for (const m of state.months) {
+            if (m.mode === 'dictator' && m.globalPicks && m.globalPicks[type] && isSimilarTitle(m.globalPicks[type], title)) {
+                const gm = m.globalPicks[type + 'Metacritic'];
+                if (gm !== undefined && gm !== null && gm !== '') {
+                    const val = parseInt(gm, 10);
+                    if (!isNaN(val)) return val;
+                }
+            }
+            for (const u of USERS) {
+                const e = m.entries?.[u]?.[type];
+                if (e && e.metacritic !== undefined && e.metacritic !== null && e.metacritic !== '') {
+                    const eTitle = (m.mode === 'dictator' && m.globalPicks) ? m.globalPicks[type] : e.title;
+                    if (eTitle && isSimilarTitle(eTitle, title)) {
+                        const val = parseInt(e.metacritic, 10);
+                        if (!isNaN(val)) return val;
+                    }
+                }
+            }
+        }
+    }
+
+    // 4. Check static dictionary (exact or fuzzy)
+    if (!title) return null;
+    const key = title.toLowerCase().trim();
+    if (METACRITIC_SCORES[key] !== undefined) return METACRITIC_SCORES[key];
+
+    for (const [k, score] of Object.entries(METACRITIC_SCORES)) {
+        if (isSimilarTitle(k, title)) return score;
+    }
+
+    return null;
+};
+
+window.getMetacriticColor = function (score) {
+    const s = parseInt(score, 10);
+    if (isNaN(s)) return 'var(--text-secondary)';
+    if (s >= 61) return '#66cc33'; // Metacritic Green
+    if (s >= 40) return '#ffcc33'; // Metacritic Yellow
+    return '#ff3333'; // Metacritic Red
+};
+
+window.evaluateMetacriticMatch = function (userRating, metaScore) {
+    const r = parseFloat(userRating);
+    const m = parseInt(metaScore, 10);
+    if (isNaN(r) || isNaN(m)) return null;
+    const scaledUser = r * 10;
+    const diff = scaledUser - m; // positive means user rated higher than critics
+    const absDiff = Math.abs(diff);
+    const isMatch = absDiff <= 5; // Within ±5 points (e.g. 7/10 = 65-75)
+    return {
+        isMatch,
+        diff,
+        absDiff,
+        direction: isMatch ? 'match' : (diff > 0 ? 'higher' : 'lower')
+    };
+};
+
 // --- DOM Elements ---
 const nav = document.getElementById('month-nav');
 const adminMenuContainer = document.getElementById('admin-menu-container');
@@ -556,6 +743,13 @@ function renderMediaItemsForUser(month, user, isEdit) {
         }
 
         if (isEdit) {
+            const currentMeta = entry.metacritic !== undefined && entry.metacritic !== '' ? entry.metacritic : (lookupMetacriticScore(displayTitle, type, entry, month) ?? '');
+            const metaFieldHtml = (type === 'game' || type === 'movie') ? `
+                <div style="display: flex; margin-top: 0.5rem;">
+                    <input type="number" id="edit-${user}-${type}-metacritic" value="${currentMeta}" placeholder="Metacritic Score (0-100, Optional)" min="0" max="100" step="1" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0;" />
+                    <button type="button" class="btn-secondary input-group-btn" onclick="autoFetchMetacritic('${user}', '${type}', ${isDictatorMode})" title="Auto-find Metacritic Score">🎯 Meta</button>
+                </div>
+            ` : '';
             output += `
                 <div class="form-group">
                     <div style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 0.3rem;">${type}</div>
@@ -567,7 +761,8 @@ function renderMediaItemsForUser(month, user, isEdit) {
                         <input type="text" id="edit-${user}-${type}-image" value="${displayImage || ''}" placeholder="Cover Image URL (Optional)" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0;" />
                         <button type="button" class="btn-secondary input-group-btn" onclick="autoFetchImage('${user}', '${type}', ${isDictatorMode})" title="Auto-find Image based on Title">🔍 Fetch</button>
                     </div>
-                    <input type="number" id="edit-${user}-${type}-rating" value="${entry.rating || ''}" placeholder="Rating (1-10)" min="1" max="10" step="0.5" style="margin-top: 0.5rem;" />
+                    <input type="number" id="edit-${user}-${type}-rating" data-original-rating="${entry.rating || ''}" value="${entry.rating || ''}" placeholder="Rating (1-10)" min="1" max="10" step="1" style="margin-top: 0.5rem;" />
+                    ${metaFieldHtml}
                     <textarea id="edit-${user}-${type}-thoughts" placeholder="Your thoughts..." rows="3" style="margin-top: 0.5rem;">${entry.thoughts || ''}</textarea>
                 </div>
             `;
@@ -589,6 +784,37 @@ function renderMediaItemsForUser(month, user, isEdit) {
                     wishlistHtml = `<button class="wishlist-add-btn" onclick="addToWishlist('${escapedTitle}', '${type}', '${user}', '${escapedImage}'); render();">📋 + Wishlist</button>`;
                 }
             }
+
+            // Metacritic display: Only shown if user has entered their own rating for this item AND the currently logged-in user has also rated it if it's the same item
+            const currentUserEntry = currentUser && month.entries[currentUser] ? month.entries[currentUser][type] : null;
+            const currentUserTitle = isDictatorMode ? globalTitle : (currentUserEntry ? currentUserEntry.title : '');
+            const isSameItemAsCurrentUser = currentUser && currentUser !== user && displayTitle && currentUserTitle && isSimilarTitle(displayTitle, currentUserTitle);
+            const canShowMetacritic = entry.rating && (!isSameItemAsCurrentUser || (currentUserEntry && currentUserEntry.rating));
+
+            let metacriticHtml = '';
+            if (canShowMetacritic && (type === 'game' || type === 'movie')) {
+                const metaScore = lookupMetacriticScore(displayTitle, type, entry, month);
+                if (metaScore !== null && metaScore !== undefined) {
+                    const evalResult = evaluateMetacriticMatch(entry.rating, metaScore);
+                    const metaColor = getMetacriticColor(metaScore);
+                    if (evalResult) {
+                        const statusClass = evalResult.isMatch ? 'meta-match' : 'meta-outlier';
+                        const statusLabel = evalResult.isMatch
+                            ? '✓ Match'
+                            : `⚡ Outlier (${evalResult.diff > 0 ? '+' : ''}${Math.round(evalResult.diff)})`;
+                        const tooltipText = evalResult.isMatch
+                            ? `Within ±5 pts of Metacritic (${metaScore}/100 vs ${entry.rating * 10}/100)`
+                            : `${Math.abs(Math.round(evalResult.diff))} pts ${evalResult.diff > 0 ? 'higher' : 'lower'} than Metacritic (${metaScore}/100 vs ${entry.rating * 10}/100)`;
+                        metacriticHtml = `
+                            <div class="metacritic-row" title="${tooltipText}">
+                                <span class="metacritic-badge" style="background: ${metaColor};">${metaScore}</span>
+                                <span class="metacritic-status ${statusClass}">${statusLabel}</span>
+                            </div>
+                        `;
+                    }
+                }
+            }
+
             output += `
                 <div class="user-item">
                     <div class="media-type">${type.toUpperCase()}</div>
@@ -596,7 +822,10 @@ function renderMediaItemsForUser(month, user, isEdit) {
                         <div class="media-text-content" style="flex: 1;">
                             <div class="media-title-row">
                                 <div class="media-title" style="flex:1;">${titleDisplay}</div>
-                                ${entry.rating ? `<div class="media-rating" style="color: ${getRatingColor(entry.rating)}; align-self: flex-start;">${entry.rating}/10</div>` : ''}
+                                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.25rem; flex-shrink:0;">
+                                    ${entry.rating ? `<div class="media-rating" style="color: ${getRatingColor(entry.rating)};">${entry.rating}/10</div>` : ''}
+                                    ${metacriticHtml}
+                                </div>
                             </div>
                             ${entry.thoughts ? `<div style="margin-top:0.5rem;"><a class="read-review-link" style="color:var(--accent); cursor:pointer; font-size: 0.9rem; text-decoration:underline;" onclick="showReviewModal(this)" data-image="${displayImage || ''}" data-thoughts="${entry.thoughts.replace(/"/g, '&quot;')}">Read Review</a></div>` : ''}
                             ${wishlistHtml}
@@ -626,7 +855,7 @@ function renderMediaItemsForUser(month, user, isEdit) {
                             <option value="tv" ${item.type === 'tv' ? 'selected' : ''}>📺 TV Show</option>
                             <option value="game" ${item.type === 'game' ? 'selected' : ''}>🎮 Game</option>
                         </select>
-                        <input type="number" class="also-consumed-rating" value="${item.rating || ''}" placeholder="Score" min="1" max="10" step="0.5" style="width: 70px; padding: 0.4rem; font-size: 0.9rem;" />
+                        <input type="number" class="also-consumed-rating" data-original-rating="${item.rating || ''}" value="${item.rating || ''}" placeholder="Score" min="1" max="10" step="1" style="width: 70px; padding: 0.4rem; font-size: 0.9rem;" />
                         <button type="button" class="btn-secondary" style="padding: 0.4rem 0.6rem; font-size: 0.8rem; border-color: #F44336; color: #F44336;" onclick="this.closest('.also-consumed-item-edit').remove()" title="Remove">✕</button>
                     </div>
                 </div>
@@ -699,17 +928,68 @@ window.cancelEdit = function (user) {
     document.getElementById(`edit-mode-${user}`).classList.add('hidden');
 };
 
+window.isValidScoreInput = function (newVal, origVal) {
+    if (!newVal || newVal.trim() === '') return true;
+    // Allow keeping an existing historical half-score untouched
+    if (origVal && newVal.trim() === origVal.trim()) return true;
+    const num = Number(newVal);
+    return Number.isInteger(num) && num >= 1 && num <= 10;
+};
+
 window.saveEdit = function (user) {
     const month = state.months.find(m => m.id === state.currentMonthId);
     if (!month) return;
+
+    // Validate integer ratings (1-10) for new/modified scores
+    for (const type of MEDIA_TYPES) {
+        const ratingEl = document.getElementById(`edit-${user}-${type}-rating`);
+        if (ratingEl) {
+            const val = ratingEl.value.trim();
+            const orig = ratingEl.getAttribute('data-original-rating') || '';
+            if (!isValidScoreInput(val, orig)) {
+                alert(`Please enter a whole number from 1 to 10 for your ${type} rating (half scores like 7.5 are no longer allowed).`);
+                return;
+            }
+        }
+    }
+
+    const listEl = document.getElementById(`also-consumed-edit-list-${user}`);
+    if (listEl) {
+        const itemEls = listEl.querySelectorAll('.also-consumed-item-edit');
+        for (const el of itemEls) {
+            const ratingEl = el.querySelector('.also-consumed-rating');
+            if (ratingEl) {
+                const val = ratingEl.value.trim();
+                const orig = ratingEl.getAttribute('data-original-rating') || '';
+                if (!isValidScoreInput(val, orig)) {
+                    alert(`Please enter a whole number from 1 to 10 for "Also Consumed" scores (half scores are no longer allowed).`);
+                    return;
+                }
+            }
+        }
+    }
 
     MEDIA_TYPES.forEach(type => {
         if (month.mode === 'regular') {
             month.entries[user][type].title = document.getElementById(`edit-${user}-${type}-title`).value.trim();
         }
         month.entries[user][type].imageUrl = document.getElementById(`edit-${user}-${type}-image`).value.trim();
-        month.entries[user][type].rating = document.getElementById(`edit-${user}-${type}-rating`).value;
+        month.entries[user][type].rating = document.getElementById(`edit-${user}-${type}-rating`).value.trim();
         month.entries[user][type].thoughts = document.getElementById(`edit-${user}-${type}-thoughts`).value.trim();
+
+        const metaEl = document.getElementById(`edit-${user}-${type}-metacritic`);
+        if (metaEl) {
+            const metaVal = metaEl.value.trim();
+            if (metaVal !== '') {
+                const parsedMeta = Math.max(0, Math.min(100, Math.round(Number(metaVal))));
+                month.entries[user][type].metacritic = !isNaN(parsedMeta) ? parsedMeta : '';
+                if (month.mode === 'dictator' && month.globalPicks) {
+                    month.globalPicks[type + 'Metacritic'] = month.entries[user][type].metacritic;
+                }
+            } else {
+                month.entries[user][type].metacritic = '';
+            }
+        }
 
         if (type === 'book') {
             const authorEl = document.getElementById(`edit-${user}-book-author`);
@@ -722,14 +1002,13 @@ window.saveEdit = function (user) {
         }
     });
 
-    const listEl = document.getElementById(`also-consumed-edit-list-${user}`);
     const alsoConsumed = [];
     if (listEl) {
         const itemEls = listEl.querySelectorAll('.also-consumed-item-edit');
         itemEls.forEach((el) => {
             const type = el.querySelector('.also-consumed-type').value;
             const title = el.querySelector('.also-consumed-title').value.trim();
-            const rating = el.querySelector('.also-consumed-rating').value;
+            const rating = el.querySelector('.also-consumed-rating').value.trim();
             if (title) {
                 alsoConsumed.push({ type, title, rating });
             }
@@ -739,6 +1018,27 @@ window.saveEdit = function (user) {
 
     saveData();
     render();
+
+    // Asynchronously auto-fetch Metacritic scores in the background if a game/movie has a title & rating but no Metacritic score yet
+    MEDIA_TYPES.forEach(type => {
+        if (type === 'game' || type === 'movie') {
+            const entry = month.entries[user][type];
+            const title = month.mode === 'dictator' ? (month.globalPicks?.[type] || '') : entry.title;
+            const existingMeta = lookupMetacriticScore(title, type, entry, month);
+            if (title && entry.rating && (existingMeta === null || existingMeta === undefined)) {
+                fetchMetacriticScoreFromWeb(title, type).then(score => {
+                    if (score !== null) {
+                        entry.metacritic = score;
+                        if (month.mode === 'dictator' && month.globalPicks) {
+                            month.globalPicks[type + 'Metacritic'] = score;
+                        }
+                        saveData();
+                        render();
+                    }
+                });
+            }
+        }
+    });
 };
 
 window.addAlsoConsumed = function(user) {
@@ -755,7 +1055,7 @@ window.addAlsoConsumed = function(user) {
                     <option value="tv">📺 TV Show</option>
                     <option value="game">🎮 Game</option>
                 </select>
-                <input type="number" class="also-consumed-rating" placeholder="Score" min="1" max="10" step="0.5" style="width: 70px; padding: 0.4rem; font-size: 0.9rem;" />
+                <input type="number" class="also-consumed-rating" placeholder="Score" min="1" max="10" step="1" style="width: 70px; padding: 0.4rem; font-size: 0.9rem;" />
                 <button type="button" class="btn-secondary" style="padding: 0.4rem 0.6rem; font-size: 0.8rem; border-color: #F44336; color: #F44336;" onclick="this.closest('.also-consumed-item-edit').remove()" title="Remove">✕</button>
             </div>
         </div>
@@ -766,6 +1066,13 @@ window.addAlsoConsumed = function(user) {
 window.showGlobalPicksModal = function () {
     const month = state.months.find(m => m.id === state.currentMonthId);
     if (!month) return;
+
+    const gameMeta = month.globalPicks.gameMetacritic !== undefined && month.globalPicks.gameMetacritic !== ''
+        ? month.globalPicks.gameMetacritic
+        : (lookupMetacriticScore(month.globalPicks.game, 'game', null, month) ?? '');
+    const movieMeta = month.globalPicks.movieMetacritic !== undefined && month.globalPicks.movieMetacritic !== ''
+        ? month.globalPicks.movieMetacritic
+        : (lookupMetacriticScore(month.globalPicks.movie, 'movie', null, month) ?? '');
 
     const modal = document.getElementById('global-picks-modal');
     modal.innerHTML = `
@@ -778,6 +1085,10 @@ window.showGlobalPicksModal = function () {
                     <input type="text" id="global-game-image" value="${month.globalPicks.gameImage || ''}" placeholder="Cover Image URL (Optional)" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0;" />
                     <button type="button" class="btn-secondary input-group-btn" onclick="autoFetchGlobalImage('game')" title="Auto-find Image based on Title">🔍 Fetch</button>
                 </div>
+                <div style="display: flex; margin-top: 0.5rem;">
+                    <input type="number" id="global-game-metacritic" value="${gameMeta}" placeholder="Metacritic Score (0-100, Optional)" min="0" max="100" step="1" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0;" />
+                    <button type="button" class="btn-secondary input-group-btn" onclick="autoFetchGlobalMetacritic('game')" title="Auto-find Metacritic Score">🎯 Meta</button>
+                </div>
             </div>
             <div class="form-group">
                 <label>Movie</label>
@@ -785,6 +1096,10 @@ window.showGlobalPicksModal = function () {
                 <div style="display: flex; margin-top: 0.5rem;">
                     <input type="text" id="global-movie-image" value="${month.globalPicks.movieImage || ''}" placeholder="Cover Image URL (Optional)" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0;" />
                     <button type="button" class="btn-secondary input-group-btn" onclick="autoFetchGlobalImage('movie')" title="Auto-find Image based on Title">🔍 Fetch</button>
+                </div>
+                <div style="display: flex; margin-top: 0.5rem;">
+                    <input type="number" id="global-movie-metacritic" value="${movieMeta}" placeholder="Metacritic Score (0-100, Optional)" min="0" max="100" step="1" style="flex:1; border-top-right-radius: 0; border-bottom-right-radius: 0;" />
+                    <button type="button" class="btn-secondary input-group-btn" onclick="autoFetchGlobalMetacritic('movie')" title="Auto-find Metacritic Score">🎯 Meta</button>
                 </div>
             </div>
             <div class="form-group">
@@ -817,8 +1132,18 @@ window.saveGlobalPicks = function () {
 
     month.globalPicks.game = document.getElementById('global-game-title').value;
     month.globalPicks.gameImage = document.getElementById('global-game-image').value;
+    const gameMetaEl = document.getElementById('global-game-metacritic');
+    if (gameMetaEl) {
+        const gm = gameMetaEl.value.trim();
+        month.globalPicks.gameMetacritic = gm !== '' ? Math.max(0, Math.min(100, Math.round(Number(gm)))) : '';
+    }
     month.globalPicks.movie = document.getElementById('global-movie-title').value;
     month.globalPicks.movieImage = document.getElementById('global-movie-image').value;
+    const movieMetaEl = document.getElementById('global-movie-metacritic');
+    if (movieMetaEl) {
+        const mm = movieMetaEl.value.trim();
+        month.globalPicks.movieMetacritic = mm !== '' ? Math.max(0, Math.min(100, Math.round(Number(mm)))) : '';
+    }
     month.globalPicks.book = document.getElementById('global-book-title').value;
     month.globalPicks.bookImage = document.getElementById('global-book-image').value;
     const bookAuthorEl = document.getElementById('global-book-author');
@@ -941,6 +1266,7 @@ function getAllRatings() {
                                 authorGender = entry.authorGender || '';
                             }
                         }
+                        const metacritic = lookupMetacriticScore(title, type, entry, month);
                         ratings.push({
                             monthId: month.id,
                             monthName: month.name,
@@ -949,6 +1275,7 @@ function getAllRatings() {
                             type: type,
                             title: title,
                             rating: parseFloat(entry.rating),
+                            metacritic: metacritic,
                             author: author,
                             authorGender: authorGender
                         });
@@ -1002,7 +1329,7 @@ function isSimilarTitle(titleA, titleB) {
     return false;
 }
 
-window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL', avgPersonFilter = 'ALL', avgMediaFilter = 'ALL', dictatorMediaFilter = 'ALL', histPersonFilter = null, histMediaFilter = null, highLowYearFilter = 'ALL', histYearFilter = 'ALL', dictatorYearFilter = 'ALL', genderPersonFilter = 'ALL', highLowMultiFilter = false) {
+window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL', avgPersonFilter = 'ALL', avgMediaFilter = 'ALL', dictatorMediaFilter = 'ALL', histPersonFilter = null, histMediaFilter = null, highLowYearFilter = 'ALL', histYearFilter = 'ALL', dictatorYearFilter = 'ALL', genderPersonFilter = 'ALL', highLowMultiFilter = false, metaMediaFilter = 'ALL', metaYearFilter = 'ALL') {
     const ratings = getAllRatings();
 
     if (histPersonFilter) window.histogramPersonFilter = histPersonFilter;
@@ -1417,6 +1744,122 @@ window.renderStats = function (personFilter = 'ALL', highLowMediaFilter = 'ALL',
                 })()}
             </div>
 
+            <!-- Metacritic Alignment & Outlier Stats -->
+            <div class="user-card" style="grid-column: 1 / -1; margin-top: 2rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin-bottom:1.2rem;">
+                    <div>
+                        <h3 style="margin:0;">🎯 Metacritic Alignment</h3>
+                        <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.2rem;">How each member's ratings compare to Metacritic (Match = within ±5 pts of score × 10)</div>
+                    </div>
+                    <div style="display:flex; gap:0.8rem; align-items:center; flex-wrap:wrap;">
+                        <div>
+                            <label style="font-size:0.75rem; color:var(--text-secondary); display:block;">Year</label>
+                            <select id="stat-meta-year" onchange="updateStats()">
+                                <option value="ALL" ${metaYearFilter === 'ALL' ? 'selected' : ''}>All Years</option>
+                                <option value="2025" ${metaYearFilter === '2025' ? 'selected' : ''}>2025</option>
+                                <option value="2026" ${metaYearFilter === '2026' ? 'selected' : ''}>2026</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem; color:var(--text-secondary); display:block;">Media Type</label>
+                            <select id="stat-meta-media" onchange="updateStats()">
+                                <option value="ALL" ${metaMediaFilter === 'ALL' ? 'selected' : ''}>Games & Movies</option>
+                                <option value="game" ${metaMediaFilter === 'game' ? 'selected' : ''}>Games Only</option>
+                                <option value="movie" ${metaMediaFilter === 'movie' ? 'selected' : ''}>Movies Only</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                ${(() => {
+                    let metaRatings = ratings.filter(r => (r.type === 'game' || r.type === 'movie') && r.metacritic !== null && r.metacritic !== undefined);
+                    if (metaMediaFilter !== 'ALL') metaRatings = metaRatings.filter(r => r.type === metaMediaFilter);
+                    if (metaYearFilter !== 'ALL') metaRatings = metaRatings.filter(r => r.year === metaYearFilter);
+
+                    if (metaRatings.length === 0) {
+                        return '<p style="color:var(--text-secondary);">No Metacritic comparison data available for this filter.</p>';
+                    }
+
+                    const userCardsHtml = USERS.map(u => {
+                        const uRatings = metaRatings.filter(r => r.user === u);
+                        if (uRatings.length === 0) {
+                            return `
+                                <div class="meta-stat-user-card">
+                                    <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.8rem;">
+                                        <div class="avatar" style="width:32px; height:32px; font-size:0.9rem; background:${USER_COLORS[u] || 'var(--accent)'};">${u[0]}</div>
+                                        <div style="font-weight:700; font-size:1.1rem;">${u}</div>
+                                    </div>
+                                    <div style="color:var(--text-secondary); font-size:0.85rem;">No rated items with Metacritic scores yet.</div>
+                                </div>
+                            `;
+                        }
+
+                        let matches = 0;
+                        let outliers = 0;
+                        let totalSignedDiff = 0;
+                        let biggestOutlier = null;
+
+                        uRatings.forEach(r => {
+                            const ev = evaluateMetacriticMatch(r.rating, r.metacritic);
+                            if (!ev) return;
+                            if (ev.isMatch) matches++;
+                            else outliers++;
+                            totalSignedDiff += ev.diff;
+                            if (!biggestOutlier || ev.absDiff > biggestOutlier.absDiff) {
+                                biggestOutlier = { ...r, ...ev };
+                            }
+                        });
+
+                        const total = uRatings.length;
+                        const matchPct = Math.round((matches / total) * 100);
+                        const avgDiff = totalSignedDiff / total;
+                        const avgDiffFormatted = `${avgDiff >= 0 ? '+' : ''}${avgDiff.toFixed(1)}`;
+                        const biasLabel = Math.abs(avgDiff) <= 2 ? ' Balanced Critic' : (avgDiff > 0 ? ' Generous (+ vs Meta)' : ' Harsh (- vs Meta)');
+                        const biasColor = Math.abs(avgDiff) <= 2 ? '#4ecdc4' : (avgDiff > 0 ? '#4caf50' : '#ff6b6b');
+
+                        return `
+                            <div class="meta-stat-user-card">
+                                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.8rem;">
+                                    <div style="display:flex; align-items:center; gap:0.6rem;">
+                                        <div class="avatar" style="width:32px; height:32px; font-size:0.9rem; background:${USER_COLORS[u] || 'var(--accent)'};">${u[0]}</div>
+                                        <div>
+                                            <div style="font-weight:700; font-size:1.05rem;">${u}</div>
+                                            <div style="font-size:0.72rem; color:${biasColor}; font-weight:600;">${biasLabel}</div>
+                                        </div>
+                                    </div>
+                                    <div style="text-align:right;">
+                                        <div style="font-size:1.3rem; font-weight:800; color:#66cc33;">${matchPct}%</div>
+                                        <div style="font-size:0.7rem; color:var(--text-secondary);">Match Rate</div>
+                                    </div>
+                                </div>
+
+                                <div style="width:100%; height:8px; background:rgba(255,152,0,0.25); border-radius:4px; overflow:hidden; margin-bottom:0.8rem;">
+                                    <div style="width:${matchPct}%; height:100%; background:#66cc33; border-radius:4px;"></div>
+                                </div>
+
+                                <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:var(--text-secondary); margin-bottom:0.8rem;">
+                                    <span><strong style="color:#66cc33;">${matches}</strong> Matches</span>
+                                    <span><strong style="color:#ff9800;">${outliers}</strong> Outliers</span>
+                                    <span>Avg Diff: <strong style="color:${biasColor};">${avgDiffFormatted}</strong></span>
+                                </div>
+
+                                ${biggestOutlier ? `
+                                    <div style="background:var(--media-item-bg); padding:0.6rem 0.75rem; border-radius:8px; border-left:3px solid ${biggestOutlier.isMatch ? '#66cc33' : '#ff9800'}; font-size:0.8rem;">
+                                        <div style="color:var(--text-secondary); font-size:0.7rem; text-transform:uppercase; font-weight:700; margin-bottom:0.2rem;">Biggest Outlier</div>
+                                        <div style="font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${biggestOutlier.title}">${biggestOutlier.title}</div>
+                                        <div style="display:flex; justify-content:space-between; margin-top:0.25rem; font-size:0.78rem;">
+                                            <span>Rated: <strong style="color:${getRatingColor(biggestOutlier.rating)};">${biggestOutlier.rating}/10</strong> (${biggestOutlier.rating * 10})</span>
+                                            <span>Meta: <strong style="color:${getMetacriticColor(biggestOutlier.metacritic)};">${biggestOutlier.metacritic}</strong> (${biggestOutlier.diff > 0 ? '+' : ''}${Math.round(biggestOutlier.diff)})</span>
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    }).join('');
+
+                    return `<div class="meta-stats-grid">${userCardsHtml}</div>`;
+                })()}
+            </div>
+
         </div>
     `;
 
@@ -1621,7 +2064,13 @@ window.updateStats = function () {
     const highLowMultiElem = document.getElementById('stat-highlow-multi');
     const highLowMultiF = highLowMultiElem ? highLowMultiElem.checked : false;
 
-    renderStats(personF, highLowMediaF, avgPersonF, avgMediaF, dictatorMediaF, histPersonF, histMediaF, highLowYearF, histYearF, dictatorYearF, genderPersonF, highLowMultiF);
+    const metaMediaElem = document.getElementById('stat-meta-media');
+    const metaMediaF = metaMediaElem ? metaMediaElem.value : 'ALL';
+
+    const metaYearElem = document.getElementById('stat-meta-year');
+    const metaYearF = metaYearElem ? metaYearElem.value : 'ALL';
+
+    renderStats(personF, highLowMediaF, avgPersonF, avgMediaF, dictatorMediaF, histPersonF, histMediaF, highLowYearF, histYearF, dictatorYearF, genderPersonF, highLowMultiF, metaMediaF, metaYearF);
 };
 
 // --- Authentication ---
@@ -1940,6 +2389,140 @@ window.autoFetchGlobalImage = async function (type) {
         alert("There was an error trying to fetch the image. Please try manually.");
     } finally {
         imageEl.placeholder = originalPlaceholder;
+    }
+};
+
+// --- Metacritic Auto-Fetch ---
+window.fetchMetacriticScoreFromWeb = async function (title, type) {
+    if (!title || (type !== 'game' && type !== 'movie')) return null;
+
+    // 1. Check local dictionary first
+    const key = title.toLowerCase().trim();
+    if (METACRITIC_SCORES[key] !== undefined) return METACRITIC_SCORES[key];
+    for (const [k, score] of Object.entries(METACRITIC_SCORES)) {
+        if (isSimilarTitle(k, title)) return score;
+    }
+
+    // 2. Query Google Custom Search for Metacritic score
+    try {
+        const mediaTerm = type === 'game' ? 'game' : 'movie';
+        const q = encodeURIComponent(`"${title}" ${mediaTerm} site:metacritic.com`);
+        const res = await fetch(`https://www.googleapis.com/customsearch/v1?key=${GOOGLE_SEARCH_KEY}&cx=${GOOGLE_SEARCH_CX}&q=${q}&num=5`);
+        const data = await res.json();
+        if (data.items) {
+            for (const item of data.items) {
+                // Check pagemap metatags or aggregaterating if present
+                const agg = item.pagemap?.aggregaterating?.[0];
+                if (agg && agg.ratingvalue) {
+                    const parsed = parseInt(agg.ratingvalue, 10);
+                    if (!isNaN(parsed) && parsed > 0 && parsed <= 100) return parsed;
+                }
+                const text = `${item.title || ''} ${item.snippet || ''}`;
+                const patterns = [
+                    /Metascore[:\s]+(\d{2,3})/i,
+                    /Metacritic(?:\s+Score)?[:\s]+(\d{2,3})/i,
+                    /(\d{2})\s*\/\s*100/,
+                    /score\s+of\s+(\d{2})/i
+                ];
+                for (const pat of patterns) {
+                    const m = text.match(pat);
+                    if (m && m[1]) {
+                        const val = parseInt(m[1], 10);
+                        if (val >= 10 && val <= 100) return val;
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('Google search for Metacritic score failed:', e);
+    }
+
+    // 3. Fallback: Wikipedia reception section / infobox via MediaWiki API
+    try {
+        const searchSuffix = type === 'game' ? 'video game' : 'film';
+        const wikiSearchRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(title + ' ' + searchSuffix)}&srlimit=3&format=json&origin=*`);
+        const wikiSearchData = await wikiSearchRes.json();
+        const pages = wikiSearchData.query?.search || [];
+        for (const p of pages) {
+            const revRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&prop=revisions&pageids=${p.pageid}&rvprop=content&rvslots=main&format=json&origin=*`);
+            const revData = await revRes.json();
+            const pageObj = revData.query?.pages?.[p.pageid];
+            const wikitext = pageObj?.revisions?.[0]?.slots?.main?.['*'] || '';
+            if (wikitext) {
+                const mcPatterns = [
+                    /\|\s*MC\s*=\s*(\d{2})\s*(?:\/\s*100)?/i,
+                    /Metacritic[\s\S]{0,120}?(\d{2})\s*\/\s*100/i,
+                    /Metacritic[\s\S]{0,120}?score\s+of\s+(\d{2})\b/i
+                ];
+                for (const pat of mcPatterns) {
+                    const m = wikitext.match(pat);
+                    if (m && m[1]) {
+                        const val = parseInt(m[1], 10);
+                        if (val >= 10 && val <= 100) return val;
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('Wikipedia fallback for Metacritic score failed:', e);
+    }
+
+    return null;
+};
+
+window.autoFetchMetacritic = async function (user, type, isDictatorMode) {
+    let title = '';
+    if (isDictatorMode) {
+        const month = state.months.find(m => m.id === state.currentMonthId);
+        title = month?.globalPicks?.[type] || '';
+    } else {
+        const titleEl = document.getElementById(`edit-${user}-${type}-title`);
+        title = titleEl ? titleEl.value.trim() : '';
+    }
+    const metaEl = document.getElementById(`edit-${user}-${type}-metacritic`);
+    if (!metaEl) return;
+
+    if (!title) {
+        alert("Please enter a title first to look up its Metacritic score.");
+        return;
+    }
+
+    const origPlaceholder = metaEl.placeholder;
+    metaEl.placeholder = "Searching Metacritic...";
+    try {
+        const score = await fetchMetacriticScoreFromWeb(title, type);
+        if (score !== null) {
+            metaEl.value = score;
+        } else {
+            alert(`Couldn't automatically find a Metacritic score for "${title}". You can enter it manually (0–100).`);
+        }
+    } finally {
+        metaEl.placeholder = origPlaceholder;
+    }
+};
+
+window.autoFetchGlobalMetacritic = async function (type) {
+    const titleEl = document.getElementById(`global-${type}-title`);
+    const metaEl = document.getElementById(`global-${type}-metacritic`);
+    if (!titleEl || !metaEl) return;
+
+    const title = titleEl.value.trim();
+    if (!title) {
+        alert("Please enter a title first to look up its Metacritic score.");
+        return;
+    }
+
+    const origPlaceholder = metaEl.placeholder;
+    metaEl.placeholder = "Searching Metacritic...";
+    try {
+        const score = await fetchMetacriticScoreFromWeb(title, type);
+        if (score !== null) {
+            metaEl.value = score;
+        } else {
+            alert(`Couldn't automatically find a Metacritic score for "${title}". You can enter it manually (0–100).`);
+        }
+    } finally {
+        metaEl.placeholder = origPlaceholder;
     }
 };
 
